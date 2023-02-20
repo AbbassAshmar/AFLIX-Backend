@@ -1,0 +1,13 @@
+name : Testing #name of the workflow
+on : push # when to run, (each time code is pushed in this case)
+
+jobs: # one or more steps to be executed during the workflow
+  test_push: #job id,descriptive, used to to represent the job
+    #needs : <job_id>, a job that depends on other  
+    #job configuration >
+    runs-on: ubuntu-latest 
+    steps:
+      - uses: actions/checkout#v3 #checks the repository 
+      - run: npm install -r requirements.txt
+      - name: django tests
+      - run: python manage.py test
