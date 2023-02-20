@@ -7,7 +7,7 @@ jobs: # one or more steps to be executed during the workflow
     #job configuration >
     runs-on: ubuntu-latest 
     steps:
-      - uses: actions/checkout#v3 #checks the repository 
+      - uses: actions/checkout@v3 #checks the repository 
       - run: npm install -r requirements.txt
       - name: django tests
         run: python manage.py test
