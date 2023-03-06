@@ -1,4 +1,4 @@
-version : '2'
+version : '2.3'
 
 services :  # specify the different docker images to compose
   db : #name 
