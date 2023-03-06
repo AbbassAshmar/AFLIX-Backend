@@ -9,5 +9,7 @@ jobs: # one or more steps to be executed during the workflow
     steps:
       - uses: actions/checkout@v3 #checks the repository 
       - run: pip install -r requirements.txt
-      - name: django tests
-        run: python manage.py test
+      - name: docker container start
+        run: docker compose -d django
+      - name: run tests
+        run: docker compose exec django python manage.py test
