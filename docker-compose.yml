@@ -1,0 +1,45 @@
+version : '3.9'
+
+services :  # specify the different docker images to compose
+  db : #name 
+    image : postgres:15.2-alpine
+    restart : always
+    ports :
+      - 5432:5432
+    environment :
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - PGDATA=/var/lib/postgresql/data/pgData
+    volumes : 
+      - ./data:/var/lib/postgresql/data/pgData
+ 
+  django :
+    restart : always
+    build : . #current directory
+    depends_on:
+      - db  #can't run before db service
+    volumes :
+    # the host file system (file in the pc) is now plugged to the virtual container file system so data can be saved in it
+      - .:/usr/src/app/backend # . : host directory relative to this file , /usr/src/app : container directory
+    ports : #Activates the container to listen for specified port(s) from the world outside of the docker
+          #(can be same host machine or a different machine) AND also accessible world inside docker.
+      - 8000:8000 #port 8000 on container (externally) currosponds to 8000 on pc,  (eternally)
+
+  react :
+    depends_on:
+      - django
+    build : 
+      context : ../frontend
+      target : development # use development step of the dockerfile
+    
+    volumes :
+      - ../frontend:/usr/src/app/frontend
+    ports:
+      - 3000:3000
+# to run docker compose , docker-compose up
+
+
+# note : exposing a port means it is available to other containers only, to be accessed by outer machines(externally)
+# this port has to be bound to a port in the host machine 
+# docker compose automatically creates a bidge newtwork between containers to communicate, the alternative would be 
+# to create a bridge network manually , and then connect the desired containers to communicate to this network using commands 
