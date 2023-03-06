@@ -1,4 +1,4 @@
-version : '2.3'
+version : '3.9'
 
 services :  # specify the different docker images to compose
   db : #name 
@@ -11,12 +11,6 @@ services :  # specify the different docker images to compose
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=pass
       - PGDATA=/var/lib/postgresql/data/pgData
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5432"]
-      interval: 1m30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     volumes : 
       - ./data:/var/lib/postgresql/data/pgData
  
@@ -24,14 +18,14 @@ services :  # specify the different docker images to compose
     restart : always
     build : . #current directory
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     volumes :
     # the host file system (file in the pc) is now plugged to the virtual container file system so data can be saved in it
       - .:/usr/src/app/backend # . : host directory relative to this file , /usr/src/app : container directory
     ports : #Activates the container to listen for specified port(s) from the world outside of the docker
           #(can be same host machine or a different machine) AND also accessible world inside docker.
       - 8000:8000 #port 8000 on container (externally) currosponds to 8000 on pc,  (eternally)
+    command : ["./wait-for-it.sh", "-t", "40", "db:5432", "--", "python", "manage.py","runserver","0.0.0.0:8000"]
 
   react :
     depends_on:
