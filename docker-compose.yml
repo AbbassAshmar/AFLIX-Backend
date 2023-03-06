@@ -25,7 +25,7 @@ services :  # specify the different docker images to compose
     ports : #Activates the container to listen for specified port(s) from the world outside of the docker
           #(can be same host machine or a different machine) AND also accessible world inside docker.
       - 8000:8000 #port 8000 on container (externally) currosponds to 8000 on pc,  (eternally)
-    command : ["./wait-for-it.sh", "-t", "40", "db:5432", "--", "python", "manage.py","runserver","0.0.0.0:8000"]
+    command : ["./wait-for-it/wait-for-it.sh", "-t", "40", "db:5432", "--", "python", "manage.py","runserver","0.0.0.0:8000"]
 
   react :
     depends_on:
