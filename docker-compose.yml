@@ -16,10 +16,11 @@ services :  # specify the different docker images to compose
   django :
     restart : always
     build : . #current directory
-    command :
-      sh -c "python manage.py wait_for_db &&
-      python manage.py migrate &&
-      python manage.py runserver 0.0.0.0:8000"
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:5432"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
     depends_on:
       - db  #can't run before db service
     volumes :
