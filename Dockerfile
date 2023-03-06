@@ -13,7 +13,7 @@ COPY requirements.txt .
 run pip install -r requirements.txt
 # copy from host machine to the container file system (a virtual file system that is created on top of the host system)
 COPY . .
-
+COPY wait-for-it.sh /wait-for-it.sh
 # to run psql, docker-compose exec <service name of database> psql -U <postgres server Name>
 ENV PATH="$PATH:C:\Program Files\PostgreSQL\15\data"
 # expose the port to be accessed by other containers
