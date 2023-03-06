@@ -16,13 +16,10 @@ services :  # specify the different docker images to compose
   django :
     restart : always
     build : . #current directory
-    healthcheck:
-        test: ["CMD", "curl", "-f", "http://localhost:5432"]
-        interval: 30s
-        timeout: 10s
-        retries: 5
+    
     depends_on:
       - db  #can't run before db service
+    command: ["./wait-for-it.sh", "db:5432", "--", "python", "app.py"]
     volumes :
     # the host file system (file in the pc) is now plugged to the virtual container file system so data can be saved in it
       - .:/usr/src/app/backend # . : host directory relative to this file , /usr/src/app : container directory
