@@ -10,6 +10,6 @@ jobs: # one or more steps to be executed during the workflow
       - uses: actions/checkout@v3 #checks the repository 
       - run: pip install -r requirements.txt
       - name: docker container start
-        run: docker compose -d django
+        run: docker compose up -d django
       - name: run tests
         run: docker compose exec django python manage.py test
