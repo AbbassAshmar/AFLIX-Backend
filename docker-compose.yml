@@ -1,4 +1,4 @@
-version : '3.9'
+version : '2'
 
 services :  # specify the different docker images to compose
   db : #name 
@@ -16,10 +16,9 @@ services :  # specify the different docker images to compose
   django :
     restart : always
     build : . #current directory
-    
     depends_on:
-      - db  #can't run before db service
-    command: ["./wait-for-it.sh", "db:5432", "--", "python", "app.py"]
+      db:
+        condition: service_started
     volumes :
     # the host file system (file in the pc) is now plugged to the virtual container file system so data can be saved in it
       - .:/usr/src/app/backend # . : host directory relative to this file , /usr/src/app : container directory
