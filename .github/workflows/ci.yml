@@ -8,7 +8,7 @@ jobs: # one or more steps to be executed during the workflow
     #needs : <job_id>, a job that depends on other  
     #job configuration >
     runs-on: ubuntu-latest 
-    steps:
+    steps: 
       - uses: actions/checkout@v3 #checks the repository 
       - name: docker container start
         run: docker compose up -d django
