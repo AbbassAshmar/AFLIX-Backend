@@ -4,12 +4,19 @@ services :  # specify the different docker images to compose
   db : #name 
     image : postgres:15.2-alpine
     restart : always
+    
     ports :
       - 5432:5432
     environment :
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=pass
       - PGDATA=/var/lib/postgresql/data/pgData
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5432"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     volumes : 
       - ./data:/var/lib/postgresql/data/pgData
  
@@ -18,7 +25,7 @@ services :  # specify the different docker images to compose
     build : . #current directory
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy
     volumes :
     # the host file system (file in the pc) is now plugged to the virtual container file system so data can be saved in it
       - .:/usr/src/app/backend # . : host directory relative to this file , /usr/src/app : container directory
