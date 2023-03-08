@@ -7,17 +7,15 @@ jobs: # one or more steps to be executed during the workflow
   test_push: #job id,descriptive, used to to represent the job
     #needs : <job_id>, a job that depends on other  
     #job configuration >
-    services : 
-      db :
-        runs-on: ubuntu-latest 
-        steps: 
-          - uses: actions/checkout@v3 #checks the repository 
-          - run : docker compose build django
-          - run: docker compose up -d django
-          - run : docker compose logs django
-          - run : docker compose logs db
-          - name: run tests
-            run: docker compose exec django python manage.py test
-          
+    runs-on: ubuntu-latest 
+    steps: 
+      - uses: actions/checkout@v3 #checks the repository 
+      - run : docker compose build django
+      - run: docker compose up -d django
+      - run : docker compose logs django
+      - run : docker compose logs db
+      - name: run tests
+        run: docker compose exec django python manage.py test
+      
 
   
