@@ -7,12 +7,19 @@ jobs: # one or more steps to be executed during the workflow
   test_push: #job id,descriptive, used to to represent the job
     #needs : <job_id>, a job that depends on other  
     #job configuration >
+    services : 
+      db :
+        image: postgres:15.2-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: pass
+        ports: 
+          - 5432:5432
+
     runs-on: ubuntu-latest 
     steps: 
       - uses: actions/checkout@v3 #checks the repository 
       - run : docker compose build django
-      - name: docker container start
-        run: docker compose up -d db
       - run: docker compose up -d django
       - name: run tests
         run: docker compose exec django python manage.py test
