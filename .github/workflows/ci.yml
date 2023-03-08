@@ -20,6 +20,6 @@ jobs: # one or more steps to be executed during the workflow
       - run : docker compose build django
       - run: docker compose up -d django
       - name: run tests
-        run: docker compose logs django
+        run: docker compose exec django python manage.py test
 
   
