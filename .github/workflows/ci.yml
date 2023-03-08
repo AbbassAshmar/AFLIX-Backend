@@ -9,20 +9,15 @@ jobs: # one or more steps to be executed during the workflow
     #job configuration >
     services : 
       db :
-        image: postgres:15.2-alpine
-        env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: pass
-
-    runs-on: ubuntu-latest 
-    steps: 
-      - uses: actions/checkout@v3 #checks the repository 
-      - run : docker compose build django
-      - run: docker compose up -d django
-      - run : docker compose logs django
-      - run : docker compose logs db
-      - name: run tests
-        run: docker compose exec django python manage.py test
-      
+        runs-on: ubuntu-latest 
+        steps: 
+          - uses: actions/checkout@v3 #checks the repository 
+          - run : docker compose build django
+          - run: docker compose up -d django
+          - run : docker compose logs django
+          - run : docker compose logs db
+          - name: run tests
+            run: docker compose exec django python manage.py test
+          
 
   
