@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: #info related to the deployment
+  name: postgres-deployment
+  labels:
+    app: postgres
+spec:
+  replicas: 1 # number of pods to create 
+  selector: # select the pods to be managed by this deployment 
+    matchLabels: 
+      app: postgres # select pods with this label
+  template: # configuration of the pods (create pods)
+    metadata: # info related to the pods 
+      labels:
+        app: postgres # label the pods
+    spec: # specification of the pods
+      containers: # select a container to be managed by the created pod
+      - name: postgres # name the container ( unique )
+        image: postgres:15.2-alpine # container image 
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-service
+spec:
+  selector: #select the pods with this label to attach the service to
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432 # port outside of the cluster
+      targetPort: 5432 # bond the port outside the cluster to the port of the pod having targetport

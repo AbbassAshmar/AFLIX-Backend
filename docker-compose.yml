@@ -29,6 +29,7 @@ services :  # specify the different docker images to compose
 
 
   react :
+    restart: always
     depends_on:
       - django
     build : 
