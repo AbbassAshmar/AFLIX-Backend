@@ -18,7 +18,7 @@ class Base(models.Model): # abstract model for abstract inheritance, this model 
     likes = models.IntegerField(default=0)
     dislikes = models.IntegerField(default=0)
     text = models.TextField(blank=False,editable=True)
-    date = models.DateTimeField(editable=True,default=timezone.now)
+    date = models.DateTimeField(editable=True,default=timezone.now,blank=True)
     def __str__(self):
         return self.user.username + ":" + self.text
 

@@ -11,10 +11,15 @@ from django.db.models import F
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from oauth2_provider.views import ProtectedResourceView
+from rest_framework import serializers
 import requests
+# from rest_framework.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.exceptions import ValidationError
+
 import random 
 import string
+
 
 class UserViewSet(viewsets.ViewSet):
     lookup_field = 'username' # overrides the default field to look for in retrieve, the default is pk 
@@ -71,7 +76,6 @@ class LoginViewSet(viewsets.ViewSet):
         if not check_password(password, user.password) :
             return Response({"error": "Wrong email or password 2 !"}, status= status.HTTP_404_NOT_FOUND)
         token = Token.objects.get_or_create(user = user)[0]
-       
         return Response({"user" :UserSerializer(user).data, "token" : token.key},status=status.HTTP_302_FOUND)
 
 class LogoutViewSet(viewsets.ViewSet):
@@ -111,6 +115,100 @@ def passwordGenerate():
     return password
 
 
+def Increment_Comments_Number(movie_id,add):
+    movie = Movie.objects.get(pk=movie_id)
+    if add :
+        movie.commentsNumber = F('commentsNumber') + 1
+    else : 
+        movie.commentsNumber = F('commentsNumber') - 1
+    movie.save(update_fields=['commentsNumber'])
+    movie.refresh_from_db()
+    return movie.commentsNumber
+
+def get_object_or_404(object, pk):
+    try:
+        obj = object.objects.get(pk = pk)
+        
+        return obj
+    except :
+        raise ObjectDoesNotExist
+class CommentApiView(APIView):
+    permission_classes=[IsAuthenticated]
+    def post(self, request):
+        movie = get_object_or_404(Movie,request.data['page_id'])
+        data = {
+            'text':request.data['text'],
+            'movie_page':movie.pk,
+            'user':Token.objects.get(key=request.headers["Authorization"].split(' ')[1]).user_id,
+            'date':request.data['dateAdded']
+        }
+        cmnt_serializer = CommentSerializer(data=data)
+        if cmnt_serializer.is_valid():
+            cmnt_serializer.save()
+            comments_number = Increment_Comments_Number(request.data['page_id'],True)
+            user_commented = User.objects.get(pk=cmnt_serializer.data['user'])
+            profile= user_commented.pfp.url if user_commented.pfp else user_commented.username[0].upper()
+            return_data = {
+                "data":cmnt_serializer.data,
+                "comments_count":str(comments_number),
+                "pfp":str(profile),
+            }
+            return Response(return_data,status=status.HTTP_200_OK)
+        return Response({"error":"couldn't add comment"},status=status.HTTP_400_BAD_REQUEST)
+    def put(self ,request, pk=None):
+        comment = Comments.objects.get(pk = pk)
+        comment_serializer = CommentSerializer(comment,data=request.data,partial=True)
+        if 'text' not in request.data:
+            raise serializers.ValidationError({"text": "no text provided"})
+        if comment_serializer.is_valid(raise_exception=True):
+            comment_serializer.save()
+            comment.refresh_from_db()
+            return Response(status=status.HTTP_200_OK)
+        else:
+            return Response({'error': comment_serializer.errors},status=status.HTTP_400_BAD_REQUEST)
+    def delete(self, request,pk=None):
+        try : 
+            comment = Comments.objects.get(pk = pk)
+            movie = comment.movie_page
+            comment.delete()
+            comments_number = Increment_Comments_Number(movie.pk, False)
+            return Response({"comments_count":comments_number},status=status.HTTP_200_OK)
+        except ObjectDoesNotExist as e:
+            return Response({"error" : e}, status=status.HTTP_404_NOT_FOUND)
+
+class ReplyApiView(APIView):
+    permission_classes=[IsAuthenticated]
+    def post(self,request):
+            parent_comment = get_object_or_404(Comments, request.data['parent-comment-id'])
+            movie = get_object_or_404(Movie, request.data['page_id'])
+            try:
+                user_replying_to = User.objects.get(username = request.data["username_replying_to"])
+            except :
+                raise ObjectDoesNotExist
+            user_replied = User.objects.get(pk=Token.objects.get(key=request.headers["Authorization"].split(' ')[1]).user_id)
+            data= {
+                'user':user_replied.pk,
+                'parent_comment': parent_comment.pk,
+                'text':request.data['text'],
+                'page_id':movie.pk,
+                'user_replying_to':user_replying_to.pk,
+                'date':request.data['dateAdded']
+            }
+            reply_serializer = ReplySerializer(data=data)
+            if reply_serializer.is_valid():
+                reply_serializer.save()
+                comments_count = Increment_Comments_Number(movie.pk,True)
+                profile= user_replied.pfp.url if user_replied.pfp else user_replied.username[0].upper()
+                resp = {
+                    'data': reply_serializer.data,
+                    'comments_count' :comments_count,
+                    'pfp':profile
+                }
+                return Response(resp,status=status.HTTP_200_OK)
+            return Response({"error":"couldn't add reply"},status=status.HTTP_400_BAD_REQUEST)
+
+
+
 class CommentReplyApiView(APIView) :
     permission_classes= [IsAuthenticated]
     def post(self, request):
@@ -132,9 +230,7 @@ class CommentReplyApiView(APIView) :
                 movie.commentsNumber = F('commentsNumber') + 1
                 movie.save(update_fields=['commentsNumber'])
                 movie.refresh_from_db()
-
             else:
-                print(reply.errors)
                 return Response({"error":"bad request"},status=status.HTTP_400_BAD_REQUEST)
             comments_count =movie.commentsNumber
             profile= User.objects.get(username=reply.data['user']).pfp.url if User.objects.get(username=reply.data['user']).pfp else User.objects.get(username = reply.data["user"]).username[0].upper()
@@ -160,6 +256,9 @@ class CommentReplyApiView(APIView) :
             comments_count =movie.commentsNumber
 
             return Response({"data":comment.data,"pfp":str(profile),"comments_id":Comments.objects.count(),"comments_count":str(comments_count)},status = status.HTTP_200_OK)
+    def put(self,request):
+        pass
+
 
 class AllComents(APIView):
     permission_classes = [IsAuthenticated]
@@ -178,6 +277,7 @@ class AllComents(APIView):
             print(e)
             return Response({"error":"No comments Yet !","comments_id":Comments.objects.count()},status=status.HTTP_204_NO_CONTENT)
 
+ 
 class LikesView(APIView):
     # permission_classes = [IsAuthenticated]
     def post(self,request):

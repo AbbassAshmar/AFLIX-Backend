@@ -18,6 +18,7 @@ services :  # specify the different docker images to compose
     build : . #current directory
     depends_on:
       - db
+      - redis
     volumes :
     # the host file system (file in the pc) is now plugged to the virtual container file system so data can be saved in it
       - .:/usr/src/app/backend # . : host directory relative to this file , /usr/src/app : container directory
@@ -25,7 +26,7 @@ services :  # specify the different docker images to compose
           #(can be same host machine or a different machine) AND also accessible world inside docker.
       - 8000:8000 #port 8000 on container (externally) currosponds to 8000 on pc,  (eternally)
     # command : ["/wait-for-it.sh", "-t", "40", "db:5432", "--", "python", "manage.py","runserver","0.0.0.0:8000"]
-    command: sh -c "/wait-for-it.sh db:5432 -t 40 -- python manage.py runserver 0.0.0.0:8000 "
+    command: sh -c "/wait-for-it.sh db:5432 -t 40 -- python manage.py runserver 0.0.0.0:8000 " # overwrite CMD in docker file
 
 
   react :
@@ -40,6 +41,28 @@ services :  # specify the different docker images to compose
       - ../frontend:/usr/src/app/frontend
     ports:
       - 3000:3000
+
+  redis :
+    image: redis:7.0.9-alpine
+    ports: 
+      - '6379:6379'
+
+  celery :
+    build : . #same build as django 
+    command : celery -A backend worker -l INFO
+    volumes : 
+      - .:/usr/src/app/backend
+    depends_on:
+      - django
+      
+  celery_beat : 
+    build : .
+    command : celery -A backend beat
+    volumes : 
+      - .:/usr/src/app/backend
+    depends_on:
+      - celery
+    
 # to run docker compose , docker-compose up
 
 

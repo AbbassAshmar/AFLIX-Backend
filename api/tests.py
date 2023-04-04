@@ -21,7 +21,7 @@ class Test_Favourite_View(TestCase):
         duration=234,
         released="2024-04-04",
         director=Directors.objects.create(name="John Snow"))
-        
+           
     def test_favorite(self):
         fav = Favorite.objects.create(user=self.user,movie =self.movie)
         self.assertIsNotNone(fav)

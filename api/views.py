@@ -149,8 +149,8 @@ def setInterval(func,time,name):
         
         
 # asign a function to thread, and specify the arguments in args=() parameter (a list of endpoints to call)
-thread = threading.Thread(target=setInterval,args=(callApi,10,["ComingSoon"]))
-#thread.start() # create a separate thread for api requests asynchronously
+thread = threading.Thread(target=setInterval,args=(callApi,10,["InTheaters"]))
+# thread.start() # create a separate thread for api requests asynchronously
 
 # InTheaters
 class MoviesView(APIView):
@@ -226,11 +226,10 @@ class FavouritesViewSet(viewsets.ModelViewSet):
             raise Http404
     def retrieve(self,request,username,movie_id):
         try:
-            print(username,movie_id)
             self.get_object(username,movie_id) # get the favorite instance  using custom get_object()
             return Response({"found":True}, status=status.HTTP_200_OK) # if found send true
         except Http404:
-            return Response({"found":False},status=status.HTTP_200_OK)
+            return Response({"found":False},status=status.HTTP_404_NOT_FOUND)
             
     def create(self, request): #receives a request containing email and movie_id
         user = User.objects.get(email = request.data["email"])
