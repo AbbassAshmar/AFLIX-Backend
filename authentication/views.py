@@ -128,7 +128,6 @@ def Increment_Comments_Number(movie_id,add):
 def get_object_or_404(object, pk):
     try:
         obj = object.objects.get(pk = pk)
-        
         return obj
     except :
         raise ObjectDoesNotExist
@@ -206,6 +205,8 @@ class ReplyApiView(APIView):
                 }
                 return Response(resp,status=status.HTTP_200_OK)
             return Response({"error":"couldn't add reply"},status=status.HTTP_400_BAD_REQUEST)
+    def put(self, request, pk=None):
+        pass
 
 
 

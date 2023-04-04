@@ -151,7 +151,62 @@ class Test_Replies(TestCase):
         with self.assertRaises(ObjectDoesNotExist):
             request = self.client.post(reverse('replies'), data = data)    
     def test_reply_edit(self):
-        pass
+        data = {
+           'text' :"aaa",
+           'parent-comment-id':"1",
+           "username_replying_to":"ssa",
+           "dateAdded":'2023-03-25T15:07:54Z',
+           "page_id":'1'
+        }
+        request = self.client.post(reverse('replies'), data=data)
+        reply = Replies.objects.get(pk =1)
+        self.assertEqual(reply.text,"aaa")
+        data={
+            'text':"bbb",
+        }
+        request = self.client.put(reverse("replies", args=['1',]), data=data)
+        self.assertEqual(request.status_code, 200)
+        reply = Replies.objects.get(pk =1)
+        self.assertEqual(reply.text, "bbb")
+    def text_reply_edit_fail(self):
+        data = {
+           'text' :"aaa",
+           'parent-comment-id':"1",
+           "username_replying_to":"ssa",
+           "dateAdded":'2023-03-25T15:07:54Z',
+           "page_id":'1'
+        }
+        request = self.client.post(reverse('replies'), data=data)
+        reply = Replies.objects.get(pk =1)
+        self.assertEqual(reply.text,"aaa")
+        data={
+            'text':"",
+        }
+        request = self.client.put(reverse("replies", args=['1',]), data=data)
+        self.assertEqual(request.status_code, 400)
+        reply = Replies.objects.get(pk =1)
+        self.assertEqual(request.json()['error'], "no text provided")
+        self.assertEqual(reply.text, "aaa")
+    def test_reply_edit_doesnt_exist(self):
+        data = {
+           'text' :"aaa",
+           'parent-comment-id':"1",
+           "username_replying_to":"ssa",
+           "dateAdded":'2023-03-25T15:07:54Z',
+           "page_id":'1'
+        }
+        request = self.client.post(reverse('replies'), data=data)
+        reply = Replies.objects.get(pk =1)
+        self.assertEqual(reply.text,"aaa")
+        data = {
+            'text':"bbb",
+        }
+        request = self.client.put(reverse("replies", args=['4',]), data=data) # reply with id 4 doesn't exist
+        reply = Replies.objects.get(pk =1)
+        self.assertEqual(request.status_code,404)
+        self.assertEqual(request.json()['error'], "reply doesn't exist")
+        self.assertEqual(reply.text, "aaa")
+
     def test_reply_delete(self):
         pass
     
