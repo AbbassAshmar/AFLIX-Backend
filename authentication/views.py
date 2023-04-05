@@ -131,6 +131,7 @@ def get_object_or_404(object, pk):
         return obj
     except :
         raise ObjectDoesNotExist
+        
 class CommentApiView(APIView):
     permission_classes=[IsAuthenticated]
     def post(self, request):
@@ -155,10 +156,16 @@ class CommentApiView(APIView):
             return Response(return_data,status=status.HTTP_200_OK)
         return Response({"error":"couldn't add comment"},status=status.HTTP_400_BAD_REQUEST)
     def put(self ,request, pk=None):
-        comment = Comments.objects.get(pk = pk)
-        comment_serializer = CommentSerializer(comment,data=request.data,partial=True)
         if 'text' not in request.data:
             raise serializers.ValidationError({"text": "no text provided"})
+        try: 
+            comment = Comments.objects.get(pk = pk)
+        except ObjectDoesNotExist :
+            return Response({"error":"no comment provided"},status=status.HTTP_404_NOT_FOUND)
+        # check whether the user commented is the same user editing
+        if not comment.user == User.objects.get(pk = Token.objects.get(pk = request.headers["Authorization"].split(" ")[1]).user_id) :
+            return Response({"error": "trying to edit a reply that doesn't belong to the user"},status=status.HTTP_403_FORBIDDEN)
+        comment_serializer = CommentSerializer(comment,data=request.data,partial=True)
         if comment_serializer.is_valid(raise_exception=True):
             comment_serializer.save()
             comment.refresh_from_db()
@@ -206,7 +213,15 @@ class ReplyApiView(APIView):
                 return Response(resp,status=status.HTTP_200_OK)
             return Response({"error":"couldn't add reply"},status=status.HTTP_400_BAD_REQUEST)
     def put(self, request, pk=None):
-        pass
+        text = request.data['text']
+        try :
+            reply = Replies.objects.get(pk = pk)
+        except ObjectDoesNotExist :
+            return Response({"error":"reply doesn't exist"},status=status.HTTP_404_NOT_FOUND)
+        if not text or len(text) < 1 :
+            return Response({"error":"no text provided"},status=status.HTTP_400_BAD_REQUEST)
+        
+        
 
 
 
