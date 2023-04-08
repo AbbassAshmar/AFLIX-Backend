@@ -17,7 +17,8 @@ urlpatterns =[
     path('replies/',ReplyApiView.as_view(),name="replies"),
     path('replies/<int:pk>',ReplyApiView.as_view(),name="replies"),
 
-    path('allcomments/',AllComents.as_view(),),
+    path('movie-comments-replies/<int:pk>',ListCommentsRepliesApiView.as_view(),),
+
     path("like/", LikesView.as_view(),),
     path("dislike/", DislikesView.as_view(),),
     path("getlikesdislikes/",GetLikesDislikesView.as_view(),),
