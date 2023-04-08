@@ -11,12 +11,12 @@ from django.db.models import F
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from oauth2_provider.views import ProtectedResourceView
+
 from rest_framework import serializers
 import requests
 # from rest_framework.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework.exceptions import ValidationError
-
+from rest_framework.exceptions import NotFound
 import random 
 import string
 
@@ -125,17 +125,17 @@ def Increment_Comments_Number(movie_id,add):
     movie.refresh_from_db()
     return movie.commentsNumber
 
-def get_object_or_404(object, pk):
+def get_object_or_404(object, pk, error_message):
     try:
         obj = object.objects.get(pk = pk)
         return obj
-    except :
-        raise ObjectDoesNotExist
+    except ObjectDoesNotExist:
+        raise NotFound(error_message)
         
 class CommentApiView(APIView):
     permission_classes=[IsAuthenticated]
     def post(self, request):
-        movie = get_object_or_404(Movie,request.data['page_id'])
+        movie = get_object_or_404(Movie,request.data['page_id'],"movie doesn't exist")
         data = {
             'text':request.data['text'],
             'movie_page':movie.pk,
@@ -168,7 +168,6 @@ class CommentApiView(APIView):
         comment_serializer = CommentSerializer(comment,data=request.data,partial=True)
         if comment_serializer.is_valid(raise_exception=True):
             comment_serializer.save()
-            comment.refresh_from_db()
             return Response(status=status.HTTP_200_OK)
         else:
             return Response({'error': comment_serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -185,12 +184,12 @@ class CommentApiView(APIView):
 class ReplyApiView(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request):
-            parent_comment = get_object_or_404(Comments, request.data['parent-comment-id'])
-            movie = get_object_or_404(Movie, request.data['page_id'])
+            parent_comment = get_object_or_404(Comments, request.data['parent-comment-id'], "parent comment not provided")
+            movie = get_object_or_404(Movie, request.data['page_id'],"movie doesn't exist")
             try:
                 user_replying_to = User.objects.get(username = request.data["username_replying_to"])
             except :
-                raise ObjectDoesNotExist
+                return Response({"error":"no user to reply to"},status=status.HTTP_404_NOT_FOUND)
             user_replied = User.objects.get(pk=Token.objects.get(key=request.headers["Authorization"].split(' ')[1]).user_id)
             data= {
                 'user':user_replied.pk,
@@ -214,13 +213,18 @@ class ReplyApiView(APIView):
             return Response({"error":"couldn't add reply"},status=status.HTTP_400_BAD_REQUEST)
     def put(self, request, pk=None):
         text = request.data['text']
-        try :
-            reply = Replies.objects.get(pk = pk)
-        except ObjectDoesNotExist :
-            return Response({"error":"reply doesn't exist"},status=status.HTTP_404_NOT_FOUND)
+        reply = get_object_or_404(Replies, pk, "reply doesn't exist")
         if not text or len(text) < 1 :
             return Response({"error":"no text provided"},status=status.HTTP_400_BAD_REQUEST)
-        
+        user_replying_id = Token.objects.get(key=request.headers['Authorization'].split(" ")[1]).user_id
+        user_replying = get_object_or_404(User,user_replying_id, "user doens't exist")
+        if not user_replying == reply.user :
+            return Response({'error':"forbidden"},status=status.HTTP_403_FORBIDDEN)
+        reply_serializer = ReplySerializer(reply, data={'text' : text},partial =True)
+        if reply_serializer.is_valid(raise_exception=True) :
+            reply_serializer.save()
+            return Response({"text":text},status=status.HTTP_200_OK)
+        return Response({"error":"reply edit failed"}, status=status.HTTP_400_BAD_REQUEST)
         
 
 
@@ -270,7 +274,6 @@ class CommentReplyApiView(APIView) :
                 return Response({"error":"bad request"},status=status.HTTP_400_BAD_REQUEST)
             profile= User.objects.get(pk=comment.data['user']).pfp.url if User.objects.get(pk=comment.data['user']).pfp else User.objects.get(pk = comment.data["user"]).username[0].upper()
             comments_count =movie.commentsNumber
-
             return Response({"data":comment.data,"pfp":str(profile),"comments_id":Comments.objects.count(),"comments_count":str(comments_count)},status = status.HTTP_200_OK)
     def put(self,request):
         pass
