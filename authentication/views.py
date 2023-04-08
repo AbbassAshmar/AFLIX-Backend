@@ -225,7 +225,17 @@ class ReplyApiView(APIView):
             reply_serializer.save()
             return Response({"text":text},status=status.HTTP_200_OK)
         return Response({"error":"reply edit failed"}, status=status.HTTP_400_BAD_REQUEST)
-        
+    def delete(self, request , pk=None) :
+        user_id = Token.objects.get(key= request.headers["Authorization"].split(' ')[1]).user_id
+        user = get_object_or_404(User, user_id, "User doesn't exist")
+        reply = get_object_or_404(Replies, pk, "Reply doesn't exist")
+        movie = reply.movie_page
+        if not user == reply.user :
+            return Response({"error":"wrong user"}, status=status.HTTP_403_FORBIDDEN)
+        reply.delete()
+        comments_count = Increment_Comments_Number(movie.id, False)
+        return Response({"comments_count":comments_count},status=status.HTTP_200_OK)
+
 
 
 

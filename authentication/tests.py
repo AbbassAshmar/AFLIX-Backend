@@ -111,6 +111,7 @@ class Test_Replies(TestCase):
         contentRate="N/A",
         duration=234,
         released="2024-04-04",
+        commentsNumber = 1,
         director=Directors.objects.create(name="John Snow"))
         cls.cmnt = Comments.objects.create(pk=1,user=cls.user,
         profile = cls.user,
@@ -133,7 +134,7 @@ class Test_Replies(TestCase):
         self.assertEqual(request.status_code, 200)
         reply = Replies.objects.get(pk=2)
         self.assertIsInstance(reply, Replies)
-        self.assertEqual(request.json()['comments_count'] , 1)
+        self.assertEqual(request.json()['comments_count'] , 2)
         self.assertEqual(reply.parent_comment.pk,1)
     def test_reply_create_fail_user_fail(self):
         
@@ -230,5 +231,37 @@ class Test_Replies(TestCase):
         request = self.client.put(reverse("replies", args=['2']), {'text':'fsdkf'})
         self.assertEqual(request.status_code, 403)
     def test_reply_delete(self):
-        pass
+        reply = Replies.objects.create(
+            pk = 6,
+            user = self.user,
+            text="aaa",
+            parent_comment=self.cmnt,
+            user_replying_to=self.user,
+            movie_page=self.movie,
+        )
     
+        request = self.client.delete(reverse("replies", args=['6']))
+        self.assertEqual(request.status_code , 200)
+        self.assertIn("comments_count",request.json())
+        self.assertEqual(request.json()["comments_count"],0)
+        with self.assertRaises(ObjectDoesNotExist):
+            Replies.objects.get(pk = 6)
+    def test_reply_delete_fail_wrong_user(self):
+        new_user = User.objects.create_user(email="ss3ssss@gmail.com",username="sssssa",password="asdessrfds")
+        reply = Replies.objects.create(
+                pk = 7,
+                user = new_user,
+                text="aaa",
+                parent_comment=self.cmnt,
+                user_replying_to=self.user,
+                movie_page=self.movie,
+            )
+        request = self.client.delete(reverse("replies", args=['7']))
+        self.assertEqual(request.status_code, 403)
+        self.assertIsInstance(Replies.objects.get(pk = 7), Replies)
+    def test_reply_delete_fail_doesnt_exist(self):
+        request = self.client.delete(reverse("replies", args=['10'])) # no reply with id 10 
+        self.assertEqual(request.status_code, 404)
+    
+
+        
