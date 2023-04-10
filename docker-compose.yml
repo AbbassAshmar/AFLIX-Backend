@@ -34,11 +34,11 @@ services :  # specify the different docker images to compose
     depends_on:
       - django
     build : 
-      context : ../AFLIX_Frontend
+      context : ../AFLIX-Frontend
       target : development # use development step of the dockerfile
     
     volumes :
-      - ../AFLIX_Frontend:/usr/src/app/frontend
+      - ../AFLIX-Frontend:/usr/src/app/frontend
     ports:
       - 3000:3000
 
