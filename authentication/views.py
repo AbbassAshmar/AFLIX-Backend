@@ -53,7 +53,10 @@ class UserViewSet(viewsets.ViewSet):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except :
             return Response("Not Found" , status= status.HTTP_404_NOT_FOUND)
-
+    def update(self, request , username=None):
+        pass
+    def delete(self,request, username=None):
+        pass
 class googleLoginViewSet(viewsets.ViewSet):
     def create(self, request):
         email= request.data["email"]
