@@ -166,7 +166,7 @@ class MoviesView(APIView):
             return Response({"error" :str(e)}, status=status.HTTP_404_NOT_FOUND)
 
 # MostPopularMovies
-class TrendingView(APIView):
+class TrendingMoviesView(APIView):
     def get(self, request):
             today = date.today()# get todays date as date object
             today_date = today.isoformat()#convert it ISO 8601 format YYYY-MM-DD, which django uses 
@@ -180,7 +180,7 @@ class TrendingView(APIView):
                 movies = Movie.objects.all()
                 return Response(MoviesSerializer(movies,many=True).data,status=status.HTTP_404_NOT_FOUND)
      
-class LatestView(APIView):
+class LatestMoviesView(APIView):
     def get(self,request):
         try: 
             today = date.today()
@@ -192,7 +192,7 @@ class LatestView(APIView):
             return Response({"error" :str(e)}, status=status.HTTP_404_NOT_FOUND)
 
 # ComingSoon
-class UpcomingView(APIView):
+class UpcomingMoviesView(APIView):
     def get(self,request):
         try :
             today = date.today()
@@ -245,7 +245,6 @@ class FavouritesViewSet(viewsets.ModelViewSet):
 class Category_Id_Movies_Apiview(APIView):
     permission_classes= [IsAuthenticated]
     def post(self,request):
-        
         id = int(request.data["id"])
         ctg = request.data["category"]
         start = (id-1) * 35
@@ -260,10 +259,25 @@ class Category_Id_Movies_Apiview(APIView):
             moviesSer =MoviesSerializer(Movie.objects.filter(released__lte= today)[start:end], many=True)
         return Response(moviesSer.data,status=status.HTTP_200_OK)
 
-class allMovies(generics.ListAPIView):
+class MovieListApiView(generics.ListAPIView):
     queryset = Movie.objects.all()
     serializer_class = MoviesSerializer
+    def get_queryset(self, limit=None):
+        if limit is not None :
+            return Movie.objects.all()[:limit]
+        return Movie.objects.all()
 
+    def list(self , request):
+        movies = self.serializer_class(self.get_queryset() ,many=True)
+        if request.query_params.get("limit") :
+            limit = request.query_params.get("limit")[0]
+            try :
+                int(limit)
+            except ValueError:
+                return Response({"error":"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
+            movies = self.serializer_class(self.get_queryset(limit=limit),many=True)
+        return Response({"movies": movies.data},status=status.HTTP_200_OK)
+    
 class allGenres(generics.ListAPIView):
     queryset = Genre.objects.all()
     serializer_class = GenresSerializer
