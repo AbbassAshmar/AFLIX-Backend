@@ -7,8 +7,9 @@ import requests
 from .serializers import *
 from .models import *
 from django.core.exceptions import ObjectDoesNotExist
-import random
 from datetime import date
+from django.db.models.functions import Cast
+from django.db.models import FloatField
 import threading
 from django.http import Http404
 from rest_framework.permissions import IsAuthenticated
@@ -181,9 +182,20 @@ class TrendingMoviesView(APIView):
     def get(self, request):
             today = date.today()# get todays date as date object
             today_date = today.isoformat()#convert it ISO 8601 format YYYY-MM-DD, which django uses   
-            movies = Movie.objects.all().filter(released__lt=today_date).filter(ratings__imdb__gte=7).exclude(poster__iendswith="/nopicture.jpg")
-            print(movies)
-            movies = get_query_set_with_limit(movies,request.query_params.get("limit"))
+            # get a list of dictionaries(ratings__imdb:imdb_rating,pk:pk) of movies released recently
+            movies = Movie.objects.filter(released__lt=today_date).exclude(poster__iendswith="/nopicture.jpg").values("ratings__imdb","pk")
+            for movie in movies :
+                # convert the imdb rating to a float (ratings is a json fied initially)
+                try :
+                    movie["ratings__imdb"] = float(movie["ratings__imdb"])
+                except:
+                    movie['ratings__imdb'] = 0
+            # make a list of all the movies pk's from the movies dictionary where ratings__imdb >= 7 
+            movies_filtered_pks = [movi["pk"] for movi in movies if movi["ratings__imdb"] >= 7]
+            # get all the movies by the pk 
+            trending_movies_list = Movie.objects.filter(pk__in = movies_filtered_pks)
+            # check for limit 
+            movies = get_query_set_with_limit(trending_movies_list, request.query_params.get("limit"))
             if movies is None :
                     return Response({'error':"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
             return Response(MoviesSerializer(movies,many=True).data,status=status.HTTP_200_OK)
