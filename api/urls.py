@@ -26,13 +26,13 @@ urlpatterns =[
     path("",include(router.urls)),
     path("", MoviesView.as_view(), name="index"),
 
-    path("movies/trending/", TrendingMoviesView.as_view(), name="trendingMoives"),
-    path("movies/latest/", LatestMoviesView.as_view(), name="latestMovies"),
-    path("movies/upcoming/", UpcomingMoviesView.as_view(), name="upcomingMovies"),
+    path("movies/trending/", TrendingMoviesView.as_view(), name="movie-trending"),
+    path("movies/latest/", LatestMoviesView.as_view(), name="movie-latest"),
+    path("movies/upcoming/", UpcomingMoviesView.as_view(), name="movie-upcoming"),
 
     path("movies/", MovieListApiView.as_view(),name="movie-list"),
-    path("genrecollection/", allGenres.as_view(), name="genreCollection"),
-    path("directorcollection/",allDirectors.as_view(),name="directorCollection"),
+    path("genrecollection/", GenreListApiView.as_view(), name="genre-list"),
+    path("directorcollection/",DirecotorListApiView.as_view(),name="director-list"),
     path("similarmovies/", SimilarMoviesView.as_view(), name="similarMovies"),
-    path("moviebycategory/",Category_Id_Movies_Apiview.as_view(),name="moviebycategory")
+    # path("moviebycategory/",Category_Id_Movies_Apiview.as_view(),name="moviebycategory)
 ]
