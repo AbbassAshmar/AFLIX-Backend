@@ -154,8 +154,9 @@ thread = threading.Thread(target=setInterval,args=(callApi,10,["InTheaters"]))
 class MoviesView(APIView):
     def get(self, request):
         try : 
-            movies_names= ["Avatar: The Way of Water","Babylon (I)","Strange World","The Fabelmans", 
-                            "The Whale","The Menu","Violent Night","The Banshees of Inisherin","Black Panther: Wakanda Forever"]
+            movies_names=["Avatar: The Way of Water","Babylon (I)","Strange World","The Fabelmans", 
+                        "The Whale","The Menu","Violent Night","The Banshees of Inisherin",
+                        "Black Panther: Wakanda Forever"]
             movies_set = Movie.objects.filter(title__in=movies_names)
             MoviesSer = MoviesSerializer(movies_set,many=True) 
             return Response(MoviesSer.data,status=status.HTTP_200_OK)
@@ -181,6 +182,7 @@ class TrendingMoviesView(APIView):
             today = date.today()# get todays date as date object
             today_date = today.isoformat()#convert it ISO 8601 format YYYY-MM-DD, which django uses   
             movies = Movie.objects.all().filter(released__lt=today_date).filter(ratings__imdb__gte=7).exclude(poster__iendswith="/nopicture.jpg")
+            print(movies)
             movies = get_query_set_with_limit(movies,request.query_params.get("limit"))
             if movies is None :
                     return Response({'error':"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
@@ -198,15 +200,14 @@ class LatestMoviesView(APIView):
 # ComingSoon
 class UpcomingMoviesView(APIView):
     def get(self,request):
-        try :
-            today = date.today() #today's date
-            date_string = today.isoformat() 
-            # get movies with release date > today
-            Movies = MoviesSerializer(Movie.objects.all().order_by("-released").filter(released__gt=date_string).exclude(poster__iendswith="/nopicture.jpg")[:15], many=True)
-            return Response(Movies.data,status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            return Response({"error" :str(e),"err":"here"}, status=status.HTTP_404_NOT_FOUND)
+        today = date.today() #today's date
+        date_string = today.isoformat() 
+        # get movies with release date > today
+        movies =Movie.objects.all().order_by("-released").filter(released__gt=date_string).exclude(poster__iendswith="/nopicture.jpg")
+        movies= get_query_set_with_limit(movies,request.query_params.get("limit"))
+        if movies is None :
+            return Response({"error":"invalid limit"},status = status.HTTP_400_BAD_REQUEST)
+        return Response(MoviesSerializer(movies, many=True).data,status=status.HTTP_200_OK)
 
 class SimilarMoviesView(APIView):
     def post(self,request):
