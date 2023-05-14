@@ -22,7 +22,7 @@ import string
 
 
 class UserViewSet(viewsets.ViewSet):
-    lookup_field = 'username' # overrides the default field to look for in retrieve, the default is pk 
+    lookup_field = 'pk' # overrides the default field to look for in retrieve, the default is pk 
     serializer_class = UserSerializer
     def list(self, request):
         queryset = User.objects.all()
@@ -32,31 +32,28 @@ class UserViewSet(viewsets.ViewSet):
     def create(self ,request):
         new_user = request.data
         if User.objects.filter(email = new_user['email']).exists():
-            return Response({"error":"Email already used"}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error":"Email already used"}, status=status.HTTP_400_BAD_REQUEST)
         if User.objects.filter(username = new_user['username']).exists():
             while {'username':new_user['username']} in User.objects.values('username'):
                 usernamee = new_user['username']+ " #"+str(random.randrange(1000,99999))
                 new_user['username'] =usernamee
-                print(new_user['username'])
         new_user['pfp'] = None
         user =User.objects.create_user(username = new_user["username"], email=new_user["email"], password = new_user["password"],pfp=new_user["pfp"])
         token = Token.objects.create(user = user)
-        authuser = authenticate(email = new_user['email'], password =new_user['password'])
-        if authuser is not None :
-            return Response({"user" : self.serializer_class(user).data, "token" : token.key}, status=status.HTTP_201_CREATED)
-        else : 
-            return Response({"error":"Can't register , check your credentials !"}, status = status.HTTP_400_BAD_REQUEST)
-    def retrieve(self, request, username=None):
+        return Response({"user" : self.serializer_class(user).data, "token" : token.key}, status=status.HTTP_201_CREATED)
+    def retrieve(self, request, pk=None):
         try :
-            user = User.objects.get(username = username)
+            user = User.objects.get(pk = pk)
             serializer = self.serializer_class(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except :
             return Response("Not Found" , status= status.HTTP_404_NOT_FOUND)
-    def update(self, request , username=None):
+    def update(self, request , pk=None):
         pass
-    def delete(self,request, username=None):
+    def delete(self,request, pk=None):
         pass
+
+
 class googleLoginViewSet(viewsets.ViewSet):
     def create(self, request):
         email= request.data["email"]
@@ -151,8 +148,10 @@ class CommentApiView(APIView):
             comments_number = Increment_Comments_Number(request.data['page_id'],True)
             user_commented = User.objects.get(pk=cmnt_serializer.data['user'])
             profile= user_commented.pfp.url if user_commented.pfp else user_commented.username[0].upper()
+            response_data = cmnt_serializer.data
+            response_data['user']= user_commented.username
             return_data = {
-                "data":cmnt_serializer.data,
+                "data":response_data,
                 "comments_count":str(comments_number),
                 "pfp":str(profile),
             }
@@ -187,7 +186,7 @@ class CommentApiView(APIView):
 class ReplyApiView(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request):
-            parent_comment = get_object_or_404(Comments, request.data['parent-comment-id'], "parent comment not provided")
+            parent_comment = get_object_or_404(Comments, request.data['parent_comment_id'], "parent comment not provided")
             movie = get_object_or_404(Movie, request.data['page_id'],"movie doesn't exist")
             try:
                 user_replying_to = User.objects.get(username = request.data["username_replying_to"])

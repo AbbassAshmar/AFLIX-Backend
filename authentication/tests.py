@@ -8,8 +8,46 @@ from rest_framework.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from .views import CommentApiView
 
-
-
+class Test_User(TestCase):
+    # executes only once initially
+    @classmethod
+    def setUpTestData(cls):
+        cls.user1 = User.objects.create_user(username="user1", email="user1@gmail.com",password="user12345")
+        cls.user2 = User.objects.create_user(username="user2", email="user2@gmail.com",password="user23456")
+        cls.user3 = User.objects.create_user(username="user3", email="user3@gmail.com",password="user33456")
+    # executes with each test
+    def setUp(self):
+        token  =Token.objects.get_or_create(user=self.user1)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + token.key)
+    def test_user_partial_update(self):
+        new_info ={
+            "username" :"user11",
+            "email":"user111@gmail.com"
+        }
+        request_update = self.client.patch(reverse("users",args=['1']),data=new_info)
+        self.assertEqual(request_update.status_code, 200)
+        self.assertDictEqual(new_info,request_update.json())
+        user = User.objects.get(pk = self.user1.pk).values("username","email")
+        self.assertDictEqual(new_info,user)
+    def test_user_partial_update_fail_wrong_user(self):
+        new_info ={
+            "username" :"user11",
+            "email":"user111@gmail.com"
+        }
+        request_update = self.client.patch(reverse("users",args=['2']),data=new_info) #user1 updating user2's info
+        self.assertEqual(request_update.status_code, 403)
+        user = User.objects.get(pk = self.user2.pk).values("username","email")
+        self.assertNotEqual(new_info,user)
+    def test_user_partial_update_fail_email_already_used(self):
+        new_info= {
+            "email":"user2@gmail.com"
+        }
+        request_update = self.client.patch(reverse("users",args=['1']),data=new_info) #email belongs to user2
+        self.assertEqual(request_update.status_code, 400)
+        self.assertEqual(request_update.json()["error"],"email already used")
+        user = User.objects.get(pk = self.user2.pk).values("email")
+        self.assertNotEqual(new_info, user)
 class Test_Comment(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -127,7 +165,7 @@ class Test_Replies(TestCase):
     def test_reply_create(self):
         data = {
            'text' :"aadifj",
-           'parent-comment-id':"1",
+           'parent_comment_id':"1",
            "username_replying_to":"ssa",
            "dateAdded":'2023-03-25T15:07:54Z',
            "page_id":'1'
@@ -142,7 +180,7 @@ class Test_Replies(TestCase):
         
         data={
             'text':"fwiefj",
-            'parent-comment-id':"1",
+            'parent_comment_id':"1",
             "username_replying_to":"ssfijeowa",#user doesn't exist
             "dateAdded":'2023-03-25T15:07:54Z',
             "page_id":'1'
@@ -152,7 +190,7 @@ class Test_Replies(TestCase):
     def test_reply_create_fail_comment_fail(self):
         data={
             'text':"fwiefj",
-            'parent-comment-id':"5",#comment doesn't exist
+            'parent_comment_id':"5",#comment doesn't exist
             "username_replying_to":"ssa",
             "dateAdded":'2023-03-25T15:07:54Z',
             "page_id":'1'
@@ -162,7 +200,7 @@ class Test_Replies(TestCase):
     def test_reply_create_fail_page_id_fail(self):
         data={
             'text':"fwiefj",
-            'parent-comment-id':"1",
+            'parent_comment_id':"1",
             "username_replying_to":"ssa",
             "dateAdded":'2023-03-25T15:07:54Z',
             "page_id":'6'#page id doesn't exist

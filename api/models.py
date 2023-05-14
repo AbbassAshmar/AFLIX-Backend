@@ -37,5 +37,5 @@ class Favorite(models.Model):
     user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='favorites',default=1)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE,related_name='favorites')
     def __str__(self):
-        return self.movie +" (Favorite)"
+        return self.user.username + " : " +self.movie.title 
     

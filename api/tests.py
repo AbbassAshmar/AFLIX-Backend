@@ -40,7 +40,7 @@ class Test_Favourite_View(TestCase):
         sreq = client.post(reverse("fav-create"),data=data)
         self.assertEqual(req.status_code,200)
         self.assertEqual(req.content,b'{"deleted/created":"created"}')
-        self.assertEqual(sreq.content,b'{"deleted/created":"delete"}')
+        self.assertEqual(sreq.content,b'{"deleted/created":"deleted"}')
     def test_retrieve_request_favorite(self):
         client = Client(HTTP_AUTHORIZATION='Token ' + self.token.key)
         data = {
@@ -245,7 +245,7 @@ class Test_Upcoming_Movie_Api_View(TestCase):
     def setUpTestData(cls) :
         cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")
         cls.movie1 = generate_movie("john","movie1","2432",7.2,"2026-04-04")
-        cls.movie2 = generate_movie("john1","movie2","232",7,"2023-05-07")
+        cls.movie2 = generate_movie("john1","movie2","232",7,"2029-05-07")
         cls.movie3 = generate_movie("john2","movie3","242",6,"2023-02-04")
         cls.movie4 = generate_movie("terry","movie4","2452",9,"1930-04-04")
         cls.movie5 = generate_movie("tom2","movie5","24452",9,"2025-04-04")
@@ -283,3 +283,40 @@ class Test_Upcoming_Movie_Api_View(TestCase):
         request = self.client.get(reverse("movie-upcoming")+"?limit=0")
         self.assertEqual(request.status_code, 400)
         self.assertEqual(request.json()["error"],"invalid limit")
+
+class Test_Similar_Movie_Api_View(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")
+        cls.movie1 = generate_movie("nolen","movie1","23123","8.1","2023-02-03",["adventure", "action", "sport"])
+        cls.movie2 = generate_movie("David Fincher","movie2","34344","10","2022-03-09",["adventure", "thriller", "drama"])
+        cls.movie3 = generate_movie("David Fincher","movie3","34654654","10","2014-03-09",["comedey", "thriller", "drama"])
+        cls.movie4 = generate_movie("martin scorsese","movie4","76123","5.5","2015-02-03",["horror" , "science fiction"])
+        cls.movie5 = generate_movie("tarantino","movie5","56123","8.1","2023-02-03",["horror", "romance"])
+        cls.movie6 = generate_movie("nolen","movie6","2314323","9.5","2021-02-03",["animation"])
+        cls.movie7 = generate_movie("nolen","movie7","2314423","4.1","2027-02-03",["adventure", "documentary"])
+        cls.movie8 = generate_movie("tarantino","movie8","2343123","5","2022-02-03",["adventure", "comedey", "sport"])
+        cls.movie9 = generate_movie("john","movie9","243123","5.3","2022-02-03",["music"])
+    def setUp(self) :
+        self.token,created= Token.objects.get_or_create(user=self.user)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION='Token '+self.token.key)
+    def test_get_similar_movies(self):
+        request = self.client.get(reverse("movie-similar",kwargs={"id":self.movie1.pk}))
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(len(request.json()['movies']), 3)
+        movies_response = [movie["title"] for movie in request.json()["movies"]]
+        movies_included = ["movie2","movie8","movie6"]
+        self.assertTrue(movie in movies_response for movie in movies_included)
+    def test_get_similar_movies_movie4(self):
+        request = self.client.get(reverse("movie-similar",kwargs={"id":self.movie4.pk}))
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(request.json()['movies'][0]["title"],"movie5")
+    def test_get_similar_movies_id_doesnt_exist(self):
+        request = self.client.get(reverse("movie-similar", kwargs={"id":3000}))
+        self.assertEqual(request.status_code, 404)
+        self.assertEqual(request.json()["error"],"movie does not exist")
+    def test_get_similar_movies_no_similar_movies_found(self):
+        request = self.client.get(reverse("movie-similar", kwargs={"id":self.movie9.pk}))
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(len(request.json()["movies"]) , 0)

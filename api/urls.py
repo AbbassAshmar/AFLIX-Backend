@@ -31,8 +31,7 @@ urlpatterns =[
     path("movies/upcoming/", UpcomingMoviesView.as_view(), name="movie-upcoming"),
 
     path("movies/", MovieListApiView.as_view(),name="movie-list"),
-    path("genrecollection/", GenreListApiView.as_view(), name="genre-list"),
-    path("directorcollection/",DirecotorListApiView.as_view(),name="director-list"),
-    path("similarmovies/", SimilarMoviesView.as_view(), name="similarMovies"),
-    # path("moviebycategory/",Category_Id_Movies_Apiview.as_view(),name="moviebycategory)
+    path("genres/", GenreListApiView.as_view(), name="genre-list"),
+    path("directors/",DirecotorListApiView.as_view(),name="director-list"),
+    path("movies/<int:id>/similar/", SimilarMoviesView.as_view(), name="movie-similar"),
 ]

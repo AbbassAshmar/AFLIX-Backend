@@ -8,11 +8,12 @@ from .serializers import *
 from .models import *
 from django.core.exceptions import ObjectDoesNotExist
 from datetime import date
-from django.db.models.functions import Cast
-from django.db.models import FloatField
 import threading
 from django.http import Http404
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q 
+
 # Create your views here.
 ImdbApiKey = "k_ofu8b6bo"
 
@@ -222,15 +223,21 @@ class UpcomingMoviesView(APIView):
         return Response(MoviesSerializer(movies, many=True).data,status=status.HTTP_200_OK)
 
 class SimilarMoviesView(APIView):
-    def post(self,request):
-        try :
-            movie = Movie.objects.get(pk = request.data["page_id"])
-            genres = [genre.id for genre in movie.genre.all()]
-            related_movies =Movie.objects.filter(genre__in= genres)[:13]
-            serializer = MoviesSerializer(related_movies, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error" : "error"}, status=status.HTTP_400_BAD_REQUEST)
+    def get(self,request,id=None):
+        try:
+            movie = Movie.objects.get(pk = id)
+        except ObjectDoesNotExist:
+            return Response({"error":"movie does not exist"},status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({"error":"invalid id"},status=status.HTTP_400_BAD_REQUEST)
+        director = movie.director
+        genres = movie.genre.all()
+        today = date.today().isoformat()
+        similar_movies = Movie.objects.filter(Q(Q(genre__in = genres) | Q(director = director))&Q(released__lt =today)).exclude(pk = movie.pk).distinct()
+        similar_movies = similar_movies[:15] if len(similar_movies) > 15 else similar_movies
+        movies_serializer = MoviesSerializer(similar_movies, many= True)
+        return Response({"movies": movies_serializer.data},status=status.HTTP_200_OK)
+    
 
 class FavouritesViewSet(viewsets.ModelViewSet):
     queryset=Favorite.objects.all()
@@ -255,7 +262,7 @@ class FavouritesViewSet(viewsets.ModelViewSet):
         try :
             fav = Favorite.objects.get(user= user,movie= movie)# get the favorite instance
             fav.delete() # if found delete it (user removed a movie from his favorites)
-            return Response({"deleted/created":"delete"},status=status.HTTP_200_OK)
+            return Response({"deleted/created":"deleted"},status=status.HTTP_200_OK)
         except ObjectDoesNotExist: # if the favorite instance doesn't exist
             fav = Favorite.objects.create(user = user, movie=movie) # create it (user added a movie to his favorites)
             return Response({"deleted/created":"created"},status=status.HTTP_200_OK)
