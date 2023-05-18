@@ -17,7 +17,7 @@ class Test_User(TestCase):
         cls.user3 = User.objects.create_user(username="user3", email="user3@gmail.com",password="user33456")
     # executes with each test
     def setUp(self):
-        token  =Token.objects.get_or_create(user=self.user1)
+        token ,created=Token.objects.get_or_create(user=self.user1)
         self.client = APIClient()
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + token.key)
     def test_user_partial_update(self):
@@ -25,29 +25,32 @@ class Test_User(TestCase):
             "username" :"user11",
             "email":"user111@gmail.com"
         }
-        request_update = self.client.patch(reverse("users",args=['1']),data=new_info)
+        request_update = self.client.patch(reverse("user-detail",args=[self.user1.pk]),data=new_info)
         self.assertEqual(request_update.status_code, 200)
         self.assertDictEqual(new_info,request_update.json())
-        user = User.objects.get(pk = self.user1.pk).values("username","email")
+        user = User.objects.filter(pk = self.user1.pk).values("username","email")[0]
         self.assertDictEqual(new_info,user)
     def test_user_partial_update_fail_wrong_user(self):
         new_info ={
             "username" :"user11",
             "email":"user111@gmail.com"
         }
-        request_update = self.client.patch(reverse("users",args=['2']),data=new_info) #user1 updating user2's info
+        request_update = self.client.patch(reverse("user-detail",args=[self.user2.pk]),data=new_info) #user1 updating user2's info
         self.assertEqual(request_update.status_code, 403)
-        user = User.objects.get(pk = self.user2.pk).values("username","email")
+        user = User.objects.filter(pk = self.user2.pk).values("username","email")[0]
         self.assertNotEqual(new_info,user)
     def test_user_partial_update_fail_email_already_used(self):
         new_info= {
             "email":"user2@gmail.com"
         }
-        request_update = self.client.patch(reverse("users",args=['1']),data=new_info) #email belongs to user2
+        request_update = self.client.patch(reverse("user-detail",args=[self.user1.pk]),data=new_info) #email belongs to user2
         self.assertEqual(request_update.status_code, 400)
         self.assertEqual(request_update.json()["error"],"email already used")
-        user = User.objects.get(pk = self.user2.pk).values("email")
+        user = User.objects.filter(pk = self.user1.pk).values("email")[0]
         self.assertNotEqual(new_info, user)
+    
+
+
 class Test_Comment(TestCase):
     @classmethod
     def setUpTestData(cls):
