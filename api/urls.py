@@ -29,7 +29,7 @@ urlpatterns =[
     path("movies/trending/", TrendingMoviesView.as_view(), name="movie-trending"),
     path("movies/latest/", LatestMoviesView.as_view(), name="movie-latest"),
     path("movies/upcoming/", UpcomingMoviesView.as_view(), name="movie-upcoming"),
-
+    path("movies/count/", MoviesCountApiView.as_view(), name="movies-count"),
     path("movies/", MovieListApiView.as_view(),name="movie-list"),
     path("genres/", GenreListApiView.as_view(), name="genre-list"),
     path("directors/",DirecotorListApiView.as_view(),name="director-list"),

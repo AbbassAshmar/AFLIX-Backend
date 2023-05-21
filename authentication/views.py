@@ -32,8 +32,6 @@ def remove_tuples_from_list(arr, *args):
         for item in arr :
             if item[0] == key:
                 arr.remove(item)
-                print(item)
-    print(arr)
     return arr
     
 
@@ -112,19 +110,27 @@ class UserViewSet(viewsets.ViewSet):
             user.set_password(user_info['newPassword'])
             # update the password of the instance in the database
             user.save(update_fields=["password"])
+        
         # create a new array of user's info without the passwords (already updated)
-        cleaned_array = remove_tuples_from_list(list(user_info.items()),"newPassword","oldPassword","confirmPassword") 
+        cleaned_array = remove_tuples_from_list(list(user_info.items()),"newPassword","oldPassword","confirmPassword","pfp") 
         # the message to be sent in the response ,(contains updated info)
         response_message = {}
+
+        # save the propfile picture if found using model.ImageField.save(name,image)   
+        if 'pfp' in user_info and user_info['pfp']:
+            user.pfp.save('pfp.jpg',user_info["pfp"])   
+            response_message["pfp"] = "http://127.0.0.1:8000"+user.pfp.url
+
         # update the fields of the user model by the cleaned array (password already updated)
         # equivalent to : user.email = email , user.username = username ...
         for info, value in cleaned_array:
             setattr(user, info, value)
             response_message[info] = value
+            
         # update the row in the db (only update changed fields)
         user.save(update_fields=[i[0] for i in cleaned_array])
-        print(response_message)
-        return Response(response_message, status=status.HTTP_200_OK)                                           
+        return Response(response_message, status=status.HTTP_200_OK)  
+                                             
     def delete(self,request, pk=None):
         pass
 
@@ -358,7 +364,6 @@ class ReplyApiView(APIView):
 #             return Response({"data":comment.data,"pfp":str(profile),"comments_id":Comments.objects.count(),"comments_count":str(comments_count)},status = status.HTTP_200_OK)
 #     def put(self,request):
 #         pass
-
 
 class ListCommentsRepliesApiView(APIView):
     permission_classes = [IsAuthenticated]

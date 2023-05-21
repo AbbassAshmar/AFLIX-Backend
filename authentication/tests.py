@@ -306,4 +306,3 @@ class Test_Replies(TestCase):
         request = self.client.delete(reverse("replies", args=['10'])) # no reply with id 10 
         self.assertEqual(request.status_code, 404)
     
-

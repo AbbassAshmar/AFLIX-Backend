@@ -171,14 +171,14 @@ class Test_Trending_Movie_Api_View(TestCase):
     def test_get_trending_movies(self):
         request = self.client.get(reverse("movie-trending"))
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()), 2)
-        names_list = [movie["title"] for movie in request.json()]
+        self.assertEqual(len(request.json()['movies']), 2)
+        names_list = [movie["title"] for movie in request.json()['movies']]
         self.assertEqual(names_list, ["movie2",'movie4'])
     def test_get_trending_movies_with_limit(self):
         request = self.client.get(reverse("movie-trending")+"?limit=1")
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()),1)
-        names_list = [movie["title"] for movie in request.json()]
+        self.assertEqual(len(request.json()['movies']),1)
+        names_list = [movie["title"] for movie in request.json()['movies']]
         self.assertEqual(names_list, ['movie2'])
     def test_get_trending_movies_with_invalid_limit(self):
         request = self.client.get(reverse("movie-trending")+"?limit=string")
@@ -187,8 +187,8 @@ class Test_Trending_Movie_Api_View(TestCase):
     def test_get_trending_movies_with_over_limit(self):
         request = self.client.get(reverse("movie-trending")+"?limit=14") # 14 > len(movies)
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()),2) #if over limit , return all movies
-        names_list = [movie["title"] for movie in request.json()]
+        self.assertEqual(len(request.json()['movies']),2) #if over limit , return all movies
+        names_list = [movie["title"] for movie in request.json()['movies']]
         self.assertEqual(names_list, ['movie2','movie4'])
     def test_get_trending_movies_with_0_or_negative_limit(self):
         request= self.client.get(reverse("movie-trending")+"?limit=0")
@@ -212,15 +212,15 @@ class Test_Latest_Movie_Api_View(TestCase):
     def test_get_latest_movies(self):
         request = self.client.get(reverse("movie-latest"))
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()),4)
-        for obj in request.json():
+        self.assertEqual(len(request.json()['movies']),4)
+        for obj in request.json()['movies']:
             self.assertNotEqual(obj['title'] ,"movie1")
             self.assertNotEqual(obj['title'] ,"movie5")
     def test_get_latest_movies_with_limit(self):
         request = self.client.get(reverse("movie-latest")+"?limit=2")
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()),2)
-        for obj in request.json():
+        self.assertEqual(len(request.json()['movies']),2)
+        for obj in request.json()['movies']:
             self.assertNotEqual(obj['title'] ,"movie1")
             self.assertNotEqual(obj['title'] ,"movie5")
     def test_get_latest_movies_with_invalid_limit(self):
@@ -230,8 +230,8 @@ class Test_Latest_Movie_Api_View(TestCase):
     def test_get_latest_movies_with_over_limit(self):
         request = self.client.get(reverse("movie-latest")+"?limit=15")
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()) , 4)
-        for obj in request.json():
+        self.assertEqual(len(request.json()['movies']) , 4)
+        for obj in request.json()['movies']:
             self.assertNotEqual(obj['title'] ,"movie1")
             self.assertNotEqual(obj['title'] ,"movie5")
     def test_get_latest_movies_with_0_or_negative_limit(self):
@@ -257,15 +257,15 @@ class Test_Upcoming_Movie_Api_View(TestCase):
     def test_get_upcoming_movies(self):
         request = self.client.get(reverse("movie-upcoming"))
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()),4)
-        for obj in request.json():
+        self.assertEqual(len(request.json()['movies']),4)
+        for obj in request.json()['movies']:
             self.assertNotEqual(obj["title"],"movie3")
             self.assertNotEqual(obj["title"],"movie4")
     def test_get_upcoming_movies_with_limit(self):
         request = self.client.get(reverse("movie-upcoming")+"?limit=3")
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()),3)
-        for obj in request.json():
+        self.assertEqual(len(request.json()['movies']),3)
+        for obj in request.json()['movies']:
             self.assertNotEqual(obj["title"],"movie3")
             self.assertNotEqual(obj["title"],"movie4")
     def test_get_upcoming_movies_with_invalid_limit(self):
@@ -275,8 +275,8 @@ class Test_Upcoming_Movie_Api_View(TestCase):
     def test_get_upcoming_movies_with_over_limit(self):
         request = self.client.get(reverse("movie-upcoming")+"?limit=200")
         self.assertEqual(request.status_code, 200)
-        self.assertEqual(len(request.json()),4)
-        for obj in request.json():
+        self.assertEqual(len(request.json()['movies']),4)
+        for obj in request.json()['movies']:
             self.assertNotEqual(obj["title"],"movie3")
             self.assertNotEqual(obj["title"],"movie4")
     def test_get_upcoming_movies_with_0_or_negative_limit(self):
@@ -320,3 +320,49 @@ class Test_Similar_Movie_Api_View(TestCase):
         request = self.client.get(reverse("movie-similar", kwargs={"id":self.movie9.pk}))
         self.assertEqual(request.status_code, 200)
         self.assertEqual(len(request.json()["movies"]) , 0)
+
+class Test_Movies_Count_Api_View(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")
+
+        cls.movie1 = generate_movie("tarantino","movie1","2432",7.2,"2026-04-04")
+        cls.movie2 = generate_movie("john","movie2","232",7,"2029-05-07")
+        cls.movie3 = generate_movie("david","movie3","278432",7.2,"2026-04-04")
+
+        cls.movie4 = generate_movie("locas","movie4","23432",6,"2022-05-07")
+        cls.movie5 = generate_movie("bekker","movie5","5432",2,"2012-04-04")
+
+        cls.movie6 = generate_movie("fincher","movie6","34453",7.9,"2023-05-07")
+        cls.movie7 = generate_movie("david","movie7","22342",9,"2014-04-04")
+        cls.movie8 = generate_movie("jonnathon","movie8","1232",7,"2020-05-07")
+    def setUp(self) :
+        self.token,created= Token.objects.get_or_create(user=self.user)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION='Token '+self.token.key)
+    
+    def test_get_movies_total_count(self):
+        request = self.client.get(reverse("movies-count"))
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(request.json()['movies_count'], 8)
+
+    def test_get_trending_movies_count(self):
+        request = self.client.get(reverse('movies-count')+"?category=trending")
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(request.json()['movies_count'] ,3)
+
+    def test_get_upcoming_movies_count(self):
+        request = self.client.get(reverse('movies-count')+"?category=upcoming")
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(request.json()['movies_count'] ,3)
+    def test_get_latest_movies_count(self):
+        request = self.client.get(reverse('movies-count')+"?category=latest")
+        self.assertEqual(request.status_code, 200)
+    
+        self.assertEqual(request.json()['movies_count'] ,5)
+
+    def test_get_movies_count_invalid_category(self):
+        request = self.client.get(reverse('movies-count')+"?category=anything")
+        self.assertEqual(request.status_code, 400)
+        self.assertEqual(request.json()['error'], "invalid category")

@@ -166,61 +166,90 @@ class MoviesView(APIView):
             print(e)
             return Response({"error" :str(e)}, status=status.HTTP_404_NOT_FOUND)
         
-def get_query_set_with_limit(query_set,query_param): 
+def get_query_set_with_limit(query_set,start, limit): 
     # if limit is specified as a query string , return limited query set, else query set
-    if query_param:
+    if limit and start:
         try: # check if the limit is a valid int
-            limit = int(query_param)
+            limit = int(limit)
+            start = int(start)
         except ValueError:
             return None
-        if limit <= 0 :
+        if limit <= 0 and start<0:
+            return None
+        return query_set[start:start+limit]
+    if limit :
+        try :
+            limit = int(limit)
+        except ValueError:
+            return None
+        if limit <= 0:
             return None
         return query_set[:limit]
     return query_set
 
+    
+def get_todays_date_iso_format():
+    return date.today().isoformat()
+
+def filter_upcoming_movies():
+    return (Movie.objects.filter(released__gt = get_todays_date_iso_format()).
+           order_by("-released").
+           exclude(poster__iendswith="/nopicture.jpg")
+    )
+def filter_latest_movies():
+    return (Movie.objects.filter(released__lte= get_todays_date_iso_format()).
+           order_by("-released").
+           exclude(poster__iendswith="/nopicture.jpg")
+    )
+def filter_trending_movies():
+    # get a list of dictionaries({ratings__imdb:imdb_rating,pk:pk}) of movies released recently
+    movies = Movie.objects.filter(released__lt=get_todays_date_iso_format()).exclude(poster__iendswith="/nopicture.jpg").values("ratings__imdb","pk")
+    for movie in movies :
+        # convert the imdb rating to a float (ratings is a json fied initially)
+        try :
+            movie["ratings__imdb"] = float(movie["ratings__imdb"])
+        except:
+            movie['ratings__imdb'] = 0
+    # make a list of all the movies pk's from the movies dictionary where ratings__imdb >= 7 
+    movies_filtered_pks = [movie["pk"] for movie in movies if movie["ratings__imdb"] >= 7]
+    # get all the movies by the obtained pks
+    return Movie.objects.filter(pk__in = movies_filtered_pks)
+    
+
 # MostPopularMovies
 class TrendingMoviesView(APIView):
     def get(self, request):
-            today = date.today()# get todays date as date object
-            today_date = today.isoformat()#convert it ISO 8601 format YYYY-MM-DD, which django uses   
-            # get a list of dictionaries(ratings__imdb:imdb_rating,pk:pk) of movies released recently
-            movies = Movie.objects.filter(released__lt=today_date).exclude(poster__iendswith="/nopicture.jpg").values("ratings__imdb","pk")
-            for movie in movies :
-                # convert the imdb rating to a float (ratings is a json fied initially)
-                try :
-                    movie["ratings__imdb"] = float(movie["ratings__imdb"])
-                except:
-                    movie['ratings__imdb'] = 0
-            # make a list of all the movies pk's from the movies dictionary where ratings__imdb >= 7 
-            movies_filtered_pks = [movi["pk"] for movi in movies if movi["ratings__imdb"] >= 7]
-            # get all the movies by the pk 
-            trending_movies_list = Movie.objects.filter(pk__in = movies_filtered_pks)
+            trending_movies_list = filter_trending_movies()
             # check for limit 
-            movies = get_query_set_with_limit(trending_movies_list, request.query_params.get("limit"))
+            start = request.query_params.get("start")
+            limit =request.query_params.get("limit")
+            movies = get_query_set_with_limit(trending_movies_list, start,limit)
             if movies is None :
                     return Response({'error':"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
-            return Response(MoviesSerializer(movies,many=True).data,status=status.HTTP_200_OK)
+            return Response({"movies":MoviesSerializer(movies, many=True).data},status=status.HTTP_200_OK)
     
 class LatestMoviesView(APIView):
     def get(self,request):
-            today = date.today()
-            date_string = today.isoformat()
-            movies = Movie.objects.all().order_by("-released").filter(released__lte=date_string).exclude(poster__iendswith="/nopicture.jpg")
-            movies = get_query_set_with_limit(movies, request.query_params.get("limit"))
+            latest_movies_list = filter_latest_movies()
+            start = request.query_params.get("start")
+            limit =request.query_params.get("limit")
+            movies = get_query_set_with_limit(latest_movies_list, start,limit)
             if movies is None :
                 return Response({"error":"invalid limit"},status = status.HTTP_400_BAD_REQUEST)
-            return Response(MoviesSerializer(movies, many=True).data, status=status.HTTP_200_OK)
+            return Response({"movies":MoviesSerializer(movies, many=True).data}, status=status.HTTP_200_OK)
+
 # ComingSoon
 class UpcomingMoviesView(APIView):
     def get(self,request):
-        today = date.today() #today's date
-        date_string = today.isoformat() 
+  
         # get movies with release date > today
-        movies =Movie.objects.all().order_by("-released").filter(released__gt=date_string).exclude(poster__iendswith="/nopicture.jpg")
-        movies= get_query_set_with_limit(movies,request.query_params.get("limit"))
+        upcoming_movies_list =filter_upcoming_movies()
+        start = request.query_params.get("start")
+        limit =request.query_params.get("limit")
+        movies = get_query_set_with_limit(upcoming_movies_list, start,limit)
         if movies is None :
             return Response({"error":"invalid limit"},status = status.HTTP_400_BAD_REQUEST)
-        return Response(MoviesSerializer(movies, many=True).data,status=status.HTTP_200_OK)
+        return Response({"movies":MoviesSerializer(movies, many=True).data},status=status.HTTP_200_OK)
 
 class SimilarMoviesView(APIView):
     def get(self,request,id=None):
@@ -267,22 +296,22 @@ class FavouritesViewSet(viewsets.ModelViewSet):
             fav = Favorite.objects.create(user = user, movie=movie) # create it (user added a movie to his favorites)
             return Response({"deleted/created":"created"},status=status.HTTP_200_OK)
 
-# class Category_Id_Movies_Apiview(APIView):
-#     permission_classes= [IsAuthenticated]
-#     def post(self,request):
-#         id = int(request.data["id"])
-#         ctg = request.data["category"]
-#         start = (id-1) * 35
-#         end = id * 35
-#         categories = ["Upcoming","Latest"]
-#         if ctg not in categories:
-#             return Response({"error":"invalid Category"},status=status.HTTP_404_NOT_FOUND)
-#         today = date.today().isoformat()
-#         if ctg == "Upcoming" :
-#             moviesSer =MoviesSerializer(Movie.objects.filter(released__gt = today)[start:end], many=True)
-#         else :
-#             moviesSer =MoviesSerializer(Movie.objects.filter(released__lte= today)[start:end], many=True)
-#         return Response(moviesSer.data,status=status.HTTP_200_OK)
+class MoviesCountApiView(APIView):
+    def get(self, request):
+        category = request.query_params.get('category')
+        movies = Movie.objects.all()
+        if category is not None: 
+            
+            if category =="trending":
+                movies = filter_trending_movies()
+            elif category == "upcoming":
+                movies = filter_upcoming_movies()
+            elif category == "latest":
+                movies = filter_latest_movies()
+            else :
+                return Response({"error":"invalid category"}, status = status.HTTP_400_BAD_REQUEST)
+        movies_count = movies.count()
+        return Response({"movies_count":movies_count},status = status.HTTP_200_OK)
 
 class MovieListApiView(generics.ListAPIView):
     queryset = Movie.objects.all()
