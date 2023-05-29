@@ -126,7 +126,6 @@ def SaveData(Apidata):
         if movieSer.is_valid():
             movieSer.save()
         else:
-            print(movieSer.errors)
             return Response({"error" :movieSer.errors}, status=status.HTTP_404_NOT_FOUND)
 
 def callApi (name): 
@@ -145,7 +144,6 @@ def setInterval(func,time,name):
         for n in name :
             event.wait(time) # wait for event.set(), if given wait for it then run the function
             result = func(n) # call the function responsible for calling an api at one of the endpoints
-            print(result)
         
         
 # asign a function to thread, and specify the arguments in args=() parameter (a list of endpoints to call)
@@ -163,7 +161,6 @@ class MoviesView(APIView):
             MoviesSer = MoviesSerializer(movies_set,many=True) 
             return Response(MoviesSer.data,status=status.HTTP_200_OK)
         except Exception as e:
-            print(e)
             return Response({"error" :str(e)}, status=status.HTTP_404_NOT_FOUND)
         
 def get_query_set_with_limit(query_set,start, limit): 
@@ -196,8 +193,10 @@ def filter_upcoming_movies():
            order_by("-released").
            exclude(poster__iendswith="/nopicture.jpg")
     )
-def filter_latest_movies():
-    return (Movie.objects.filter(released__lte= get_todays_date_iso_format()).
+def filter_latest_movies(query_set=None):
+    if not query_set :
+        query_set = Movie.objects.all()
+    return (query_set.filter(released__lte= get_todays_date_iso_format()).
            order_by("-released").
            exclude(poster__iendswith="/nopicture.jpg")
     )
@@ -301,7 +300,6 @@ class MoviesCountApiView(APIView):
         category = request.query_params.get('category')
         movies = Movie.objects.all()
         if category is not None: 
-            
             if category =="trending":
                 movies = filter_trending_movies()
             elif category == "upcoming":
@@ -313,24 +311,59 @@ class MoviesCountApiView(APIView):
         movies_count = movies.count()
         return Response({"movies_count":movies_count},status = status.HTTP_200_OK)
 
+# class MovieListApiView(generics.ListAPIView):
+#     queryset = Movie.objects.all()
+#     serializer_class = MoviesSerializer
+#     def get_queryset(self, limit=None):
+#         if limit is not None :
+#             return Movie.objects.all()[:limit]
+#         return Movie.objects.all()
+#     def list(self , request):
+#         movies = self.serializer_class(self.get_queryset() ,many=True)
+#         if request.query_params.get("limit") :
+#             limit = request.query_params.get("limit")[0]
+#             try :
+#                 limit = int(limit)
+#             except ValueError:
+#                 return Response({"error":"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
+#             movies = self.serializer_class(self.get_queryset(limit=(limit)),many=True)
+#         return Response({"movies": movies.data},status=status.HTTP_200_OK)
+def filter_movie_query_set(query_set, query_params):
+        genres = query_params.get('genre',None)
+        rated = query_params.get('rated',None)
+        released = query_params.get('released',None)
+        query = Q()
+        if genres and "All" not in genres :
+            genre_id = [Genre.objects.get(name=g).id for g in genres]
+            query.add(Q(genre__id__in = genre_id), Q.AND)
+        if rated and "All" not in rated :
+            query.add(Q(contentRate = rated[0]) , Q.AND)
+        if released and "All" not in released :
+            if released[0] == "Unreleased":
+                query.add(Q(released__gt=get_todays_date_iso_format()),Q.AND)
+            elif released[0] == "older":
+                query.add(Q(released__year__lte=2018),Q.AND)
+            else:            
+                query.add(Q(released__year=int(released[0])) , Q.AND)
+        return query_set.filter(query).distinct()
+
 class MovieListApiView(generics.ListAPIView):
     queryset = Movie.objects.all()
     serializer_class = MoviesSerializer
-    def get_queryset(self, limit=None):
-        if limit is not None :
-            return Movie.objects.all()[:limit]
-        return Movie.objects.all()
-    def list(self , request):
-        movies = self.serializer_class(self.get_queryset() ,many=True)
-        if request.query_params.get("limit") :
-            limit = request.query_params.get("limit")[0]
-            try :
-                limit = int(limit)
-            except ValueError:
-                return Response({"error":"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
-            movies = self.serializer_class(self.get_queryset(limit=(limit)),many=True)
-        return Response({"movies": movies.data},status=status.HTTP_200_OK)
-    
+    def list(self, request):
+        params = dict(request.query_params)
+        start = request.query_params.get("start",None)
+        limit = request.query_params.get("limit",None)
+        movies = Movie.objects.all()
+        filtered_movies = filter_movie_query_set(movies, params)
+        filtered_movies = get_query_set_with_limit(filtered_movies, start,limit)
+        if filtered_movies is None :
+            return Response({"error":"invalid limit"}, status=status.HTTP_400_BAD_REQUEST)
+        moviesSerializer = MoviesSerializer(filtered_movies,many=True).data
+        return Response({"movies":moviesSerializer},status=status.HTTP_200_OK)
+        
+        
+        
 class GenreListApiView(generics.ListAPIView):
     queryset = Genre.objects.all()
     serializer_class = GenresSerializer

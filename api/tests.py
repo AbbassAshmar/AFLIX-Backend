@@ -5,6 +5,28 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 from django.urls import reverse
 
+def generate_movie(dir,title,imdb,imdbr,release,contentRate=None,genre=None):
+    director ,created= Directors.objects.get_or_create(name = dir)
+    movie = Movie.objects.create(
+        title = title,
+        trailer = "www.aslkdfj",
+        image = "www.fasd",
+        thumbnail  = "www.ajskdf",
+        imdbId = imdb,
+        poster = "www.dfjsf",
+        ratings={"imdb":imdbr,"metacritics":"N/A"},
+        plot = "N/A",
+        contentRate = contentRate if contentRate else "N/A",
+        duration = 234,
+        released = release,
+        director= director
+    )
+    if genre is not None :
+        for i in genre :
+            g,created= Genre.objects.get_or_create(name=i)
+            movie.genre.add(g)
+    return movie
+
 class Test_Favourite_View(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -54,105 +76,81 @@ class Test_Favourite_View(TestCase):
         self.assertEqual(resp.content,b'{"found":true}')
         self.assertEqual(resp2.content,b'{"found":false}')
 
-    # def test_Category_Id_Movies_view(self):
-    #     client = Client(HTTP_AUTHORIZATION="Token "+self.token.key)
-    #     resp = client.post(reverse("moviebycategory"),data={
-    #         "id":1,
-    #         "category":"Upcoming",
-    #     })
-    #     self.assertEqual(resp.status_code,200)
-    #     self.assertIsNotNone(resp.content)
-
-
 class Test_Movie_List_Api_View(TestCase):
     @classmethod
-    def setUpTestData(cls):
+    def setUpTestData(cls) :
         cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")
-        cls.movie1 = Movie.objects.create(
-        title="movie1",
-        trailer="www.sdiojfdsijfiejwfijwoifj",
-        image="www.sdiojfdsijfiejwfijwoifj",
-        thumbnail="www.sdiojfdsijfiejwfijwoifj",
-        imdbId='fsdfewfwerew',
-        poster="www.sdiojfdsijfiejwfijwoifj",
-        ratings={"imdb":"N/A","metacritics":"N/A"},
-        plot="N/A",
-        contentRate="N/A",
-        duration=234,
-        released="2024-04-04",
-        director=Directors.objects.create(name="John Snow"))
+        cls.movie1 = generate_movie("john","movie1","2432","7.2","2024-04-04",contentRate="R",genre=["Action","Adventure"])
+        cls.movie2 = generate_movie("john1","movie2","232","7","2023-04-04",contentRate="G",genre=["Comedy","Adventure"])
+        cls.movie3 = generate_movie("john2","movie3","242","6","2019-02-04",contentRate="G",genre=["Thriller","Sport"])
+        cls.movie4 = generate_movie("terry","movie4","2452","9","2022-04-04",contentRate="PG",genre=["Action","Adventure"])
+        cls.movie5 = generate_movie("tom2","movie5","24452","9","2025-04-04",contentRate="R+",genre=["Action","Sport"])
+        cls.movie6 = generate_movie("terry","movie6","245442","2","2022-04-04",contentRate="PG",genre=["Drama","Adventure"])
+        cls.movie7 = generate_movie("david","movie7","243222","9","2012-04-04",contentRate="R",genre=["Action","Adventure"])
+        cls.movie8 = generate_movie("Fincher","movie8","244052","9","2009-04-04",contentRate="R",genre=["Comedy","thriller"])
 
-        cls.movie2 = Movie.objects.create(
-        title="movie2",
-        trailer="www.sdiojfdsijfiejwfijwoifj",
-        image="www.sdiojfdsijfiejwfijwoifj",
-        thumbnail="www.sdiojfdsijfiejwfijwoifj",
-        imdbId='fsdfewfwlerew',
-        poster="www.sdiojfdsijfiejwfijwoifj",
-        ratings={"imdb":"N/A","metacritics":"N/A"},
-        plot="N/A",
-        contentRate="N/A",
-        duration=234,
-        released="2024-04-04",
-        director=Directors.objects.create(name="John Snow2"))
-
-
-        cls.movie3 = Movie.objects.create(
-        title="movie3",
-        trailer="www.sdiojfdsijfiejwfijwoifj",
-        image="www.sdiojfdsijfiejwfijwoifj",
-        thumbnail="www.sdiojfdsijfiejwfijwoifj",
-        imdbId='fsdfewfwereiw',
-        poster="www.sdiojfdsijfiejwfijwoifj",
-        ratings={"imdb":"N/A","metacritics":"N/A"},
-        plot="N/A",
-        contentRate="N/A",
-        duration=234,
-        released="2024-04-04",
-        director=Directors.objects.create(name="John Snow3"))
-    def setUp(self):
-        self.token, created = Token.objects.get_or_create(user=self.user)
+    def setUp(self) :
+        token, created = Token.objects.get_or_create(user=self.user)
         self.client = APIClient()
-        self.client.credentials(HTTP_AUTHORIZATION='Token '+self.token.key)
+        self.client.credentials(HTTP_AUTHORIZATION='Token '+token.key)
 
-    def test_list_all_movies(self):
+    def test_get_all_movies(self):
         request_all_movies = self.client.get(reverse("movie-list"))
         self.assertEqual(request_all_movies.status_code, 200)
-        self.assertEqual(len(request_all_movies.json()["movies"]), 3)
-    def test_list_all_movies_with_limit(self):
-        request_movies_limit = self.client.get(reverse("movie-list")+"?limit=2")
+        self.assertEqual(len(request_all_movies.json()["movies"]), 8)
+
+    def test_get_movies_limited(self):
+        request_movies_limit = self.client.get(reverse("movie-list")+"?start=0&limit=2")
         self.assertEqual(request_movies_limit.status_code, 200)
         self.assertEqual(len(request_movies_limit.json()["movies"]), 2)
-    def test_list_all_movies_with_over_limit(self):
-        request_movies_limit = self.client.get(reverse("movie-list")+"?limit=4")
+
+    def test_get_movies_over_limit(self):
+        request_movies_limit = self.client.get(reverse("movie-list")+"?limit=200")
         self.assertEqual(request_movies_limit.status_code, 200)
-        self.assertEqual(len(request_movies_limit.json()["movies"]), 3)
-    def test_list_all_movies_with_invalid_limit(self):
+        self.assertEqual(len(request_movies_limit.json()["movies"]), 8)
+
+    def test_get_movies_invlalid_limit(self):
         request_movies_limit = self.client.get(reverse("movie-list")+"?limit=string")
         self.assertEqual(request_movies_limit.status_code, 400)
         self.assertEqual(request_movies_limit.json()["error"], "invalid limit")
 
-def generate_movie(dir,title,imdb,imdbr,release,genre=None):
-    director ,created= Directors.objects.get_or_create(name = dir)
-    movie = Movie.objects.create(
-        title = title,
-        trailer = "www.aslkdfj",
-        image = "www.fasd",
-        thumbnail  = "www.ajskdf",
-        imdbId = imdb,
-        poster = "www.dfjsf",
-        ratings={"imdb":imdbr,"metacritics":"N/A"},
-        plot = "N/A",
-        contentRate = "N/A",
-        duration = 234,
-        released = release,
-        director= director
-    )
-    if genre is not None :
-        for i in genre :
-            g,created= Genre.objects.get_or_create(name=i)
-            movie.genre.add(g)
-    return movie
+    def test_get_movies_filtered(self):
+        request_movies = self.client.get(reverse("movie-list") +"?rated=R")
+        self.assertEqual(request_movies.status_code , 200)
+        self.assertEqual(len(request_movies.json()["movies"]),3)
+        movies_to_be_included= ['movie1','movie7','movie8']
+        self.assertTrue(movie.title in movies_to_be_included for movie in request_movies.json()['movies'])
+    def test_get_movies_filtered_2(self):
+        request_movies = self.client.get(reverse("movie-list") +"?genre=Action&genre=Adventure")
+        self.assertEqual(request_movies.status_code , 200)
+        self.assertEqual(len(request_movies.json()["movies"]),6)
+        movies_to_be_included= ['movie1','movie2','movie4','movie5','movie6','movie7']
+        self.assertTrue(movie.title in movies_to_be_included for movie in request_movies.json()['movies'])
+    def test_get_movies_filtered_3(self):
+        request_movies = self.client.get(reverse("movie-list") +"?rated=R&genre=Action&genre=Adventure")
+        self.assertEqual(request_movies.status_code , 200)
+        self.assertEqual(len(request_movies.json()["movies"]),2)
+        movies_to_be_included= ['movie1','movie7']
+        self.assertTrue(movie.title in movies_to_be_included for movie in request_movies.json()['movies'])
+    def test_get_movies_filtered_4(self):
+        request_movies = self.client.get(reverse("movie-list") +"?rated=All&genre=All&released=Unreleased")
+        self.assertEqual(request_movies.status_code , 200)
+        self.assertEqual(len(request_movies.json()["movies"]),2)
+        movies_to_be_included= ['movie1','movie5']
+        self.assertTrue(movie.title in movies_to_be_included for movie in request_movies.json()['movies'])
+    def test_get_movies_filtered_5(self):
+        request_movies = self.client.get(reverse("movie-list") +"?rated=All&genre=All&released=older")
+        self.assertEqual(request_movies.status_code , 200)
+        self.assertEqual(len(request_movies.json()["movies"]),2)
+        movies_to_be_included= ['movie7','movie8']
+        self.assertTrue(movie.title in movies_to_be_included for movie in request_movies.json()['movies'])
+    def test_get_movies_filtered_limited(self):
+        request_movies = self.client.get(reverse("movie-list") +"?genre=Action&genre=Adventure&start=0&limit=2")
+        self.assertEqual(request_movies.status_code , 200)
+        self.assertEqual(len(request_movies.json()["movies"]),2)
+        movies_to_be_included= ['movie1','movie2',]
+        self.assertTrue(movie.title in movies_to_be_included for movie in request_movies.json()['movies'])
+
 
 class Test_Trending_Movie_Api_View(TestCase):
     @classmethod
@@ -288,15 +286,15 @@ class Test_Similar_Movie_Api_View(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")
-        cls.movie1 = generate_movie("nolen","movie1","23123","8.1","2023-02-03",["adventure", "action", "sport"])
-        cls.movie2 = generate_movie("David Fincher","movie2","34344","10","2022-03-09",["adventure", "thriller", "drama"])
-        cls.movie3 = generate_movie("David Fincher","movie3","34654654","10","2014-03-09",["comedey", "thriller", "drama"])
-        cls.movie4 = generate_movie("martin scorsese","movie4","76123","5.5","2015-02-03",["horror" , "science fiction"])
-        cls.movie5 = generate_movie("tarantino","movie5","56123","8.1","2023-02-03",["horror", "romance"])
-        cls.movie6 = generate_movie("nolen","movie6","2314323","9.5","2021-02-03",["animation"])
-        cls.movie7 = generate_movie("nolen","movie7","2314423","4.1","2027-02-03",["adventure", "documentary"])
-        cls.movie8 = generate_movie("tarantino","movie8","2343123","5","2022-02-03",["adventure", "comedey", "sport"])
-        cls.movie9 = generate_movie("john","movie9","243123","5.3","2022-02-03",["music"])
+        cls.movie1 = generate_movie("nolen","movie1","23123","8.1","2023-02-03",genre=["adventure", "action", "sport"])
+        cls.movie2 = generate_movie("David Fincher","movie2","34344","10","2022-03-09",genre=["adventure", "thriller", "drama"])
+        cls.movie3 = generate_movie("David Fincher","movie3","34654654","10","2014-03-09",genre=["comedey", "thriller", "drama"])
+        cls.movie4 = generate_movie("martin scorsese","movie4","76123","5.5","2015-02-03",genre=["horror" , "science fiction"])
+        cls.movie5 = generate_movie("tarantino","movie5","56123","8.1","2023-02-03",genre=["horror", "romance"])
+        cls.movie6 = generate_movie("nolen","movie6","2314323","9.5","2021-02-03",genre=["animation"])
+        cls.movie7 = generate_movie("nolen","movie7","2314423","4.1","2027-02-03",genre=["adventure", "documentary"])
+        cls.movie8 = generate_movie("tarantino","movie8","2343123","5","2022-02-03",genre=["adventure", "comedey", "sport"])
+        cls.movie9 = generate_movie("john","movie9","243123","5.3","2022-02-03",genre=["music"])
     def setUp(self) :
         self.token,created= Token.objects.get_or_create(user=self.user)
         self.client = APIClient()
@@ -359,7 +357,6 @@ class Test_Movies_Count_Api_View(TestCase):
     def test_get_latest_movies_count(self):
         request = self.client.get(reverse('movies-count')+"?category=latest")
         self.assertEqual(request.status_code, 200)
-    
         self.assertEqual(request.json()['movies_count'] ,5)
 
     def test_get_movies_count_invalid_category(self):

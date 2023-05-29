@@ -29,7 +29,7 @@ class Movie(models.Model) :
     imdbId = models.CharField(max_length=300,null=True,blank=True,unique=True)
     thumbnail = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg")
     def __str__(self):
-        return self.title +"("+ str(self.released) +")"
+        return self.title 
 # many favorites can be associated with the same movie (many movies can be set as favorite), nut only one movie can be set as favorite
 #a movie can be set as favorite many times and for each favorite instance, only one movie can be set;
 # so each favorite instance represents a movie and belongs to a user in the favorites page 
