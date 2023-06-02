@@ -13,7 +13,7 @@ from django.http import Http404
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q 
-
+from django.db.models import Count
 # Create your views here.
 ImdbApiKey = "k_ofu8b6bo"
 
@@ -240,7 +240,6 @@ class LatestMoviesView(APIView):
 # ComingSoon
 class UpcomingMoviesView(APIView):
     def get(self,request):
-  
         # get movies with release date > today
         upcoming_movies_list =filter_upcoming_movies()
         start = request.query_params.get("start")
@@ -328,16 +327,21 @@ class MoviesCountApiView(APIView):
 #                 return Response({"error":"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
 #             movies = self.serializer_class(self.get_queryset(limit=(limit)),many=True)
 #         return Response({"movies": movies.data},status=status.HTTP_200_OK)
+
 def filter_movie_query_set(query_set, query_params):
         genres = query_params.get('genre',None)
         rated = query_params.get('rated',None)
         released = query_params.get('released',None)
         query = Q()
         if genres and "All" not in genres :
-            genre_id = [Genre.objects.get(name=g).id for g in genres]
-            query.add(Q(genre__id__in = genre_id), Q.AND)
+            try :
+                genre= [Genre.objects.get(name=g) for g in genres]
+            except ObjectDoesNotExist:
+                return Movie.objects.none()
+            query.add(Q(genre__in = genre), Q.AND)
         if rated and "All" not in rated :
-            query.add(Q(contentRate = rated[0]) , Q.AND)
+            print("here")
+            query.add(Q(contentRate__iexact = rated[0]) , Q.AND)
         if released and "All" not in released :
             if released[0] == "Unreleased":
                 query.add(Q(released__gt=get_todays_date_iso_format()),Q.AND)
@@ -345,22 +349,37 @@ def filter_movie_query_set(query_set, query_params):
                 query.add(Q(released__year__lte=2018),Q.AND)
             else:            
                 query.add(Q(released__year=int(released[0])) , Q.AND)
-        return query_set.filter(query).distinct()
+        try :
+            filtered_query_set = query_set.filter(query).distinct()
+        except Exception as e :
+            filtered_query_set = Movie.objects.none()
+        return filtered_query_set
 
 class MovieListApiView(generics.ListAPIView):
     queryset = Movie.objects.all()
     serializer_class = MoviesSerializer
     def list(self, request):
+        #convert query_params query_dict to a dict
         params = dict(request.query_params)
+        # get the start and limit query strings if found else assign it to None
         start = request.query_params.get("start",None)
         limit = request.query_params.get("limit",None)
-        movies = Movie.objects.all()
+        #movies query set
+        movies = self.get_queryset()
+        #filter movies according to the available query params
         filtered_movies = filter_movie_query_set(movies, params)
+        #reduce the number of movies to the limit if available
         filtered_movies = get_query_set_with_limit(filtered_movies, start,limit)
+
+        #if limit is invalid , return an error
         if filtered_movies is None :
             return Response({"error":"invalid limit"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        movies_count = filtered_movies.count()
+        # return serialized movies 
         moviesSerializer = MoviesSerializer(filtered_movies,many=True).data
-        return Response({"movies":moviesSerializer},status=status.HTTP_200_OK)
+      
+        return Response({"movies":moviesSerializer,'count':movies_count},status=status.HTTP_200_OK)
         
         
         

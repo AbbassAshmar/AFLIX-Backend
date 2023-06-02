@@ -320,7 +320,6 @@ class Test_Similar_Movie_Api_View(TestCase):
         self.assertEqual(len(request.json()["movies"]) , 0)
 
 class Test_Movies_Count_Api_View(TestCase):
-
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")

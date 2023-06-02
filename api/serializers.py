@@ -7,6 +7,7 @@ class MoviesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movie
         fields = "__all__"
+
     def to_representation(self, obj):
         # transforms internal representation (model instance) to external representation like dictionaty.
         data = super().to_representation(obj)
@@ -29,7 +30,7 @@ class MoviesSerializer(serializers.ModelSerializer):
         except ValueError:
             data['released'] = None
         return super().to_internal_value(data)
-
+  
 class DirectorsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Directors
