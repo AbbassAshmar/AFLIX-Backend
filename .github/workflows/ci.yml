@@ -15,7 +15,7 @@ jobs: # one or more steps to be executed during the workflow
       - run : docker compose logs django
       - run : docker compose logs db
       - run : docker compose ps
-      - name: Sleep for 30 seconds
+      - name: Sleep for 10 seconds
         run: sleep 10s
         shell: bash
       - name: run tests

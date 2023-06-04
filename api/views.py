@@ -340,7 +340,6 @@ def filter_movie_query_set(query_set, query_params):
                 return Movie.objects.none()
             query.add(Q(genre__in = genre), Q.AND)
         if rated and "All" not in rated :
-            print("here")
             query.add(Q(contentRate__iexact = rated[0]) , Q.AND)
         if released and "All" not in released :
             if released[0] == "Unreleased":
@@ -368,6 +367,9 @@ class MovieListApiView(generics.ListAPIView):
         movies = self.get_queryset()
         #filter movies according to the available query params
         filtered_movies = filter_movie_query_set(movies, params)
+
+        movies_total_count = filtered_movies.count()
+
         #reduce the number of movies to the limit if available
         filtered_movies = get_query_set_with_limit(filtered_movies, start,limit)
 
@@ -376,10 +378,15 @@ class MovieListApiView(generics.ListAPIView):
             return Response({"error":"invalid limit"}, status=status.HTTP_400_BAD_REQUEST)
         
         movies_count = filtered_movies.count()
+        
         # return serialized movies 
         moviesSerializer = MoviesSerializer(filtered_movies,many=True).data
-      
-        return Response({"movies":moviesSerializer,'count':movies_count},status=status.HTTP_200_OK)
+
+        response_dict = {"movies":moviesSerializer,
+                        'count':movies_count,
+                        'total_count':movies_total_count}
+        
+        return Response(response_dict,status=status.HTTP_200_OK)
         
         
         
