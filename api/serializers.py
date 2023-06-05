@@ -26,7 +26,6 @@ class MoviesSerializer(serializers.ModelSerializer):
                 releasedd = datetime.strptime(data["released"].replace(",",""),"%b %d %Y")
             releasedd = releasedd.date()
             data["released"] = releasedd
-            print(data["released"])
         except ValueError:
             data['released'] = None
         return super().to_internal_value(data)
@@ -44,4 +43,11 @@ class GenresSerializer(serializers.ModelSerializer):
 class FavouriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Favorite
-        fields ="__all__"
+        fields =['movie']
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        movie_instance= Movie.objects.get(pk = data['movie'])
+        data["movie"] = MoviesSerializer(movie_instance).data
+        return data
+
+    

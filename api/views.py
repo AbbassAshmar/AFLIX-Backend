@@ -6,6 +6,7 @@ from rest_framework import status
 import requests
 from .serializers import *
 from .models import *
+from rest_framework.authtoken.models import Token
 from django.core.exceptions import ObjectDoesNotExist
 from datetime import date
 import threading
@@ -14,6 +15,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q 
 from django.db.models import Count
+from authentication.views import get_object_or_404
 # Create your views here.
 ImdbApiKey = "k_ofu8b6bo"
 
@@ -271,11 +273,47 @@ class FavouritesViewSet(viewsets.ModelViewSet):
     serializer_class = FavouriteSerializer
     lookup_field=['username','movie_id']
     permission_classes=[IsAuthenticated]
+
+    # get a favorite instance using user's username and movie's id instead of favorite id
     def get_object(self,username,movie_id):
-        try: # get a favorite instance using user's username and movie's id instead of favorite id
+        try: 
             return Favorite.objects.get(user=User.objects.get(username=username), movie= Movie.objects.get(pk=movie_id))
         except:
-            raise Http404
+            raise Http404()
+        
+    def list(self,request,pk=None):
+        start = request.query_params.get("start",None)
+        limit = request.query_params.get("limit",None)
+        params = dict(request.query_params)
+        user = get_object_or_404(User,pk,{'error':'User does not exist'})
+        token_key = request.headers.get('Authorization').split(' ')[1]
+        try :
+            user_by_token = Token.objects.get(key = token_key).user
+        except ObjectDoesNotExist :
+            return Response({"error":"User does not exist"},status=status.HTTP_404_NOT_FOUND)
+        if user != user_by_token :
+            return Response({"error": "Fobidden : You are not allowed to access the favorites of another user."},status = status.HTTP_403_FORBIDDEN)
+        
+        favourites_list = self.get_queryset().filter(user=User.objects.get(id=pk))
+        if not favourites_list.exists():
+            return Response({"movies":[],"count":0,'total_count':0},status=status.HTTP_200_OK)
+        
+        favorite_movies = Movie.objects.filter(favorites__in = favourites_list)
+        favorite_movies_filtered =filter_movie_query_set(favorite_movies,params)
+        favorite_movies_filtered_limited = get_query_set_with_limit(favorite_movies_filtered,start=start,limit=limit) 
+
+        movies_serializer = MoviesSerializer(favorite_movies_filtered_limited, many=True)
+        total_count = favorite_movies_filtered.count()
+        count = favorite_movies_filtered_limited.count()
+
+        response_dict = {
+            'movies':movies_serializer.data,
+            'count':count,
+            'total_count':total_count,
+        }
+
+        return Response(response_dict,status=status.HTTP_200_OK)
+    
     def retrieve(self,request,username,movie_id):
         try:
             self.get_object(username,movie_id) # get the favorite instance  using custom get_object()
@@ -360,9 +398,11 @@ class MovieListApiView(generics.ListAPIView):
     def list(self, request):
         #convert query_params query_dict to a dict
         params = dict(request.query_params)
+
         # get the start and limit query strings if found else assign it to None
         start = request.query_params.get("start",None)
         limit = request.query_params.get("limit",None)
+
         #movies query set
         movies = self.get_queryset()
         #filter movies according to the available query params

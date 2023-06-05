@@ -31,20 +31,15 @@ class Test_Favourite_View(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(email="ss@gmail.com",username="ssa",password="asderfds")
-        cls.token,created = Token.objects.get_or_create(user = cls.user)
-        cls.movie = Movie.objects.create(title="iew",
-        trailer="www.sdiojfdsijfiejwfijwoifj",
-        image="www.sdiojfdsijfiejwfijwoifj",
-        thumbnail="www.sdiojfdsijfiejwfijwoifj",
-        imdbId='fsdfewfwerew',
-        poster="www.sdiojfdsijfiejwfijwoifj",
-        ratings={"imdb":"N/A","metacritics":"N/A"},
-        plot="N/A",
-        contentRate="N/A",
-        duration=234,
-        released="2024-04-04",
-        director=Directors.objects.create(name="John Snow"))
-           
+        cls.movie = generate_movie(dir="John Snow",title='movie1',imdb='fsdfewfwerew',imdbr='4' ,release='2024-04-04',genre=['Action'])
+        cls.movie2 = generate_movie(dir="John2 Snow",title='movie2',imdb='fsdfe22wfwerew',imdbr='5',release='2024-04-04',genre=['Adventure'])
+        cls.movie3 = generate_movie(dir="John2 Snow",title='movie3',imdb='jeiwjfoisjf',imdbr='9',release='2024-04-04')
+
+    def setUp(self):
+        token,created = Token.objects.get_or_create(user=self.user)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION='Token '+token.key)
+
     def test_favorite(self):
         fav = Favorite.objects.create(user=self.user,movie =self.movie)
         self.assertIsNotNone(fav)
@@ -52,30 +47,88 @@ class Test_Favourite_View(TestCase):
         fav = Favorite.objects.create(user=self.user,movie =self.movie)
         get_fav = Favorite.objects.get(user = self.user,movie=self.movie)
         self.assertEqual(fav,get_fav)
-    def test_post_request_favorite(self):
+    def test_create_favorite(self):
         data = {
             "email":self.user.email,
             "movie_id":1
         }
-        client = Client(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        req = client.post(reverse("fav-create"),data=data)
-        sreq = client.post(reverse("fav-create"),data=data)
+        req = self.client.post(reverse("fav-create"),data=data)
+        sreq = self.client.post(reverse("fav-create"),data=data)
         self.assertEqual(req.status_code,200)
         self.assertEqual(req.content,b'{"deleted/created":"created"}')
         self.assertEqual(sreq.content,b'{"deleted/created":"deleted"}')
     def test_retrieve_request_favorite(self):
-        client = Client(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        data = {
-            "email":self.user.email,
-            "movie_id":1
-        }
-        client.post(reverse("fav-create"),data=data)
-        resp = client.get(reverse('fav-detail',args=["ssa","1"]))
-        resp2 = client.get(reverse('fav-detail',args=['ssa','2']))
+        Favorite.objects.create(user=self.user, movie =self.movie)
+        resp = self.client.get(reverse('fav-detail',args=[self.user.username,self.movie.pk]))
+        resp2 = self.client.get(reverse('fav-detail',args=[self.user.username,'4948']))
         self.assertEqual(resp.status_code,200)
         self.assertEqual(resp.content,b'{"found":true}')
         self.assertEqual(resp2.content,b'{"found":false}')
 
+    def test_list_favourites(self):
+        Favorite.objects.create(user=self.user,movie=self.movie)
+        Favorite.objects.create(user=self.user,movie= self.movie2)
+        request = self.client.get(reverse('fav-list',args=[self.user.pk]))
+        self.assertEqual(request.status_code,200)
+        self.assertEqual(request.json()['count'],2)
+        movies_not_included = ['movie3']
+        movies_included= [movie['title'] for movie in request.json()['movies']]
+        for movie in movies_not_included :
+            self.assertTrue(movie not in movies_included)
+
+    def test_list_favourites_different_users(self):
+        # user1 requesting the favourites of user2 
+        user2 =User.objects.create_user(email="sfds@gmail.com",username="ssfdsa",password="asderfsdfds")
+        request = self.client.get(reverse('fav-list',args=[user2.pk]))
+        self.assertEqual(request.status_code,403)
+        error = "Fobidden : You are not allowed to access the favorites of another user."
+        self.assertEqual(request.json()['error'],error)
+
+    def test_list_favourites_user_not_found(self):
+        #user of id 39323 does not exist 
+        request = self.client.get(reverse('fav-list',args=['39323']))
+        self.assertEqual(request.status_code,404)
+        error = "User does not exist"
+        self.assertEqual(request.json()['error'],error)
+
+    def test_list_favourites_no_favourites(self):
+        user3 =User.objects.create_user(email="user3@gmail.com",username="user3",password="sfuewijor22")
+        token2,created = Token.objects.get_or_create(user=user3)
+        client2 = APIClient()
+        client2.credentials(HTTP_AUTHORIZATION='Token '+token2.key)
+        request = client2.get(reverse('fav-list',args=[user3.pk]))
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(request.json()['count'], 0)
+
+    def test_list_favourites_user_not_authenticated(self):
+        #no token associated with the request
+        user4=User.objects.create_user(email="user4@gmail.com",username="user4",password="sfsdauewij22")
+        client3 = APIClient()
+        request = client3.get(reverse('fav-list',args=[user4.pk]))
+        self.assertEqual(request.status_code , 401)
+        self.assertEqual(request.json()['detail'], "Authentication credentials were not provided.")
+
+    def test_list_favourites_with_limit(self):
+        Favorite.objects.create(user=self.user,movie=self.movie)
+        Favorite.objects.create(user=self.user,movie= self.movie2)
+        request = self.client.get(reverse('fav-list',args=[self.user.pk]) +'?limit=1&start=0')
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(request.json()['count'], 1)
+        self.assertEqual(request.json()['total_count'], 2)
+        movies_not_included = ['movie3']
+        movies_included= [movie['title'] for movie in request.json()['movies']]
+        for movie in movies_not_included :
+            self.assertTrue(movie not in movies_included)
+
+    def test_list_favourites_with_filtering(self):
+        Favorite.objects.create(user=self.user,movie=self.movie)
+        Favorite.objects.create(user=self.user,movie= self.movie2)
+        request = self.client.get(reverse('fav-list',args=[self.user.pk]) +'?genre=Action&released=2024')
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(request.json()['movies'][0]['title'], 'movie1')
+        self.assertEqual(request.json()['count'], 1)
+        
+    
 class Test_Movie_List_Api_View(TestCase):
     @classmethod
     def setUpTestData(cls) :

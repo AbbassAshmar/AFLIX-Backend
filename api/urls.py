@@ -18,6 +18,13 @@ class customRouter(SimpleRouter):
             detail=True,
             initkwargs={}
         ),
+        Route(
+            url=r'^{prefix}/(?P<pk>[^/]+)',
+            mapping={'get':'list'},
+            name='{basename}-list',
+            detail=False,
+            initkwargs={}
+        )
     ]
 router = customRouter()
 router.register('favourite',FavouritesViewSet,basename="fav")
