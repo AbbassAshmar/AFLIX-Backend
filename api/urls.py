@@ -12,7 +12,7 @@ class customRouter(SimpleRouter):
             initkwargs={}
         ),
         Route(
-            url=r'^{prefix}/(?P<username>[^/]+)/(?P<movie_id>[^/]+)$',
+            url=r'^{prefix}/(?P<id>[^/]+)/(?P<movie_id>[^/]+)$',
             mapping ={'get':'retrieve'},
             name='{basename}-detail',
             detail=True,
@@ -27,7 +27,7 @@ class customRouter(SimpleRouter):
         )
     ]
 router = customRouter()
-router.register('favourite',FavouritesViewSet,basename="fav")
+router.register('movies/favorites',FavouritesViewSet,basename="fav")
 
 urlpatterns =[
     path("",include(router.urls)),
@@ -41,4 +41,5 @@ urlpatterns =[
     path("genres/", GenreListApiView.as_view(), name="genre-list"),
     path("directors/",DirecotorListApiView.as_view(),name="director-list"),
     path("movies/<int:id>/similar/", SimilarMoviesView.as_view(), name="movie-similar"),
+    path("movies/top-imdb/", TopImdbMoviesView.as_view(), name="movie-top-imdb")
 ]

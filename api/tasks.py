@@ -22,3 +22,8 @@ def MostPopularMovies():
 def ComingSoon():
     apiCall("ComingSoon")
     return True
+
+@app.task 
+def TopImdb():
+    apiCall('Top250Movies')
+    return True

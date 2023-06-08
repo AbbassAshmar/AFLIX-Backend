@@ -59,8 +59,8 @@ class Test_Favourite_View(TestCase):
         self.assertEqual(sreq.content,b'{"deleted/created":"deleted"}')
     def test_retrieve_request_favorite(self):
         Favorite.objects.create(user=self.user, movie =self.movie)
-        resp = self.client.get(reverse('fav-detail',args=[self.user.username,self.movie.pk]))
-        resp2 = self.client.get(reverse('fav-detail',args=[self.user.username,'4948']))
+        resp = self.client.get(reverse('fav-detail',args=[self.user.pk,self.movie.pk]))
+        resp2 = self.client.get(reverse('fav-detail',args=[self.user.pk,'4948']))
         self.assertEqual(resp.status_code,200)
         self.assertEqual(resp.content,b'{"found":true}')
         self.assertEqual(resp2.content,b'{"found":false}')
@@ -133,14 +133,14 @@ class Test_Movie_List_Api_View(TestCase):
     @classmethod
     def setUpTestData(cls) :
         cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")
-        cls.movie1 = generate_movie("john","movie1","2432","7.2","2024-04-04",contentRate="R",genre=["Action","Adventure"])
-        cls.movie2 = generate_movie("john1","movie2","232","7","2023-04-04",contentRate="G",genre=["Comedy","Adventure"])
-        cls.movie3 = generate_movie("john2","movie3","242","6","2019-02-04",contentRate="G",genre=["Thriller","Sport"])
-        cls.movie4 = generate_movie("terry","movie4","2452","9","2022-04-04",contentRate="PG",genre=["Action","Adventure"])
-        cls.movie5 = generate_movie("tom2","movie5","24452","9","2025-04-04",contentRate="R+",genre=["Action","Sport"])
-        cls.movie6 = generate_movie("terry","movie6","245442","2","2022-04-04",contentRate="PG",genre=["Drama","Adventure"])
-        cls.movie7 = generate_movie("david","movie7","243222","9","2012-04-04",contentRate="R",genre=["Action","Adventure"])
-        cls.movie8 = generate_movie("Fincher","movie8","244052","9","2009-04-04",contentRate="R",genre=["Comedy","thriller"])
+        cls.movie1 = generate_movie("john","movie1","2432",7.2,"2024-04-04",contentRate="R",genre=["Action","Adventure"])
+        cls.movie2 = generate_movie("john1","movie2","232",7,"2023-04-04",contentRate="G",genre=["Comedy","Adventure"])
+        cls.movie3 = generate_movie("john2","movie3","242",6,"2019-02-04",contentRate="G",genre=["Thriller","Sport"])
+        cls.movie4 = generate_movie("terry","movie4","2452",9,"2022-04-04",contentRate="PG",genre=["Action","Adventure"])
+        cls.movie5 = generate_movie("tom2","movie5","24452",9,"2025-04-04",contentRate="R+",genre=["Action","Sport"])
+        cls.movie6 = generate_movie("terry","movie6","245442",2,"2022-04-04",contentRate="PG",genre=["Drama","Adventure"])
+        cls.movie7 = generate_movie("david","movie7","243222",9,"2012-04-04",contentRate="R",genre=["Action","Adventure"])
+        cls.movie8 = generate_movie("Fincher","movie8","244052",9,"2009-04-04",contentRate="R",genre=["Comedy","thriller"])
 
     def setUp(self) :
         token, created = Token.objects.get_or_create(user=self.user)
@@ -209,12 +209,12 @@ class Test_Trending_Movie_Api_View(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")
-        cls.movie1 = generate_movie("john","movie1","2432","7.2","2024-04-04")
-        cls.movie2 = generate_movie("john1","movie2","232","7","2023-04-04")
-        cls.movie3 = generate_movie("john2","movie3","242","6","2023-02-04")
-        cls.movie4 = generate_movie("terry","movie4","2452","9","2022-04-04")
-        cls.movie5 = generate_movie("tom2","movie5","24452","9","2025-04-04")
-        cls.movie6 = generate_movie("terry","movie6","245442","2","2022-04-04")
+        cls.movie1 = generate_movie("john","movie1","2432",7.2,"2024-04-04")
+        cls.movie2 = generate_movie("john1","movie2","232",7,"2023-04-04")
+        cls.movie3 = generate_movie("john2","movie3","242",6,"2023-02-04")
+        cls.movie4 = generate_movie("terry","movie4","2452",9,"2022-04-04")
+        cls.movie5 = generate_movie("tom2","movie5","24452",9,"2025-04-04")
+        cls.movie6 = generate_movie("terry","movie6","245442",2,"2022-04-04")
     def setUp(self) :
         self.token,created= Token.objects.get_or_create(user=self.user)
         self.client = APIClient()
@@ -415,3 +415,32 @@ class Test_Movies_Count_Api_View(TestCase):
         request = self.client.get(reverse('movies-count')+"?category=anything")
         self.assertEqual(request.status_code, 400)
         self.assertEqual(request.json()['error'], "invalid category")
+
+class Test_Top_Imdb_Movies_Api_View(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(email="email1@gmail.com",username="username",password="password")
+
+        cls.movie1 = generate_movie("Frank Darabont","The Shawshank Redemption","2432","9.2","1994-04-04")
+        cls.movie2 = generate_movie("Francis Ford Coppol","The Godfather","2fdsa32","9.2","1972-05-07")
+        cls.movie3 = generate_movie("Cristopher Nolan","The Dark Knight","2784fds32","9.0","2008-04-04")
+
+        cls.movie4 = generate_movie("locas","movie4","23432","6","2022-05-07")
+        cls.movie5 = generate_movie("bekker","movie5","5432","2","2012-04-04")
+
+        cls.movie6 = generate_movie("fincher","movie6","34453","7.9","2023-05-07")
+        cls.movie7 = generate_movie("david","movie7","22342","8.9","2014-04-04")
+        cls.movie8 = generate_movie("jonnathon","movie8","1232","7","2020-05-07")
+    def setUp(self) :
+        self.token,created= Token.objects.get_or_create(user=self.user)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION='Token '+self.token.key)
+    def test_get_top_3_imdb_movies(self):
+        request = self.client.get(reverse("movie-top-imdb")+"?limit=3&start=0")
+        self.assertEqual(request.status_code, 200)
+        self.assertEqual(request.json()['count'], 3)
+        expected_movies_ids = [self.movie1.id, self.movie2.id, self.movie3.id]
+        received_ids = [movie['id'] for movie in request.json()['movies']]
+        for id in expected_movies_ids :
+            self.assertTrue(id in received_ids)
+        

@@ -76,11 +76,14 @@ def SaveData(Apidata):
         if "contentRating" not in Apidata :
             rating = (omdbCall["Rated"] if "Rated" in omdbCall else "N/A")
         else:
-            rating=Apidata["contentRating"]
+            try :
+                rating=Apidata["contentRating"]
+            except:
+                pass
         #check in which api imdb rating is available and save it in imdb variable
         imdb = omdbCall["imdbRating"] if ("imDbRating" not in Apidata or Apidata["imDbRating"] == "null") else Apidata["imDbRating"]
         try :
-            float(imdb)#if imdb is not a number ,set it to "N/A"
+            imdb = float(imdb)#if imdb is not a number ,set it to "N/A"
         except (ValueError,TypeError) :
             imdb="N/A"
         if "Poster" not in omdbCall or omdbCall["Poster"] =="N/A": # if theres no poster in omdb api
@@ -136,20 +139,22 @@ def callApi (name):
     if r['errorMessage'] == '' : #check for error messages
         for item in r["items"][:40] :
             SaveData(item)
+            print(item)
         return True
     else :
         return False
 
 event = threading.Event() # Create an Event to control the timimg of the thread
 def setInterval(func,time,name):
+    print("here")
     while True :
         for n in name :
+            func(n) # call the function responsible for calling an api at one of the endpoints
             event.wait(time) # wait for event.set(), if given wait for it then run the function
-            result = func(n) # call the function responsible for calling an api at one of the endpoints
         
         
 # asign a function to thread, and specify the arguments in args=() parameter (a list of endpoints to call)
-thread = threading.Thread(target=setInterval,args=(callApi,10,["InTheaters"]))
+thread = threading.Thread(target=setInterval,args=(callApi,100,["Top250Movies"]))
 # thread.start() # create a separate thread for api requests asynchronously
 
 # InTheaters
@@ -190,11 +195,19 @@ def get_query_set_with_limit(query_set,start, limit):
 def get_todays_date_iso_format():
     return date.today().isoformat()
 
+def filter_movies_by_date_ratings_poster():
+    exclude = Q(Q(poster__iendswith="/nopicture.jpg") | Q(ratings__imdb = "N/A"))
+    movies = Movie.objects.filter(released__lt=get_todays_date_iso_format())
+    movies = movies.exclude(exclude)
+    return movies 
+
 def filter_upcoming_movies():
     return (Movie.objects.filter(released__gt = get_todays_date_iso_format()).
            order_by("-released").
            exclude(poster__iendswith="/nopicture.jpg")
     )
+
+
 def filter_latest_movies(query_set=None):
     if not query_set :
         query_set = Movie.objects.all()
@@ -202,9 +215,12 @@ def filter_latest_movies(query_set=None):
            order_by("-released").
            exclude(poster__iendswith="/nopicture.jpg")
     )
-def filter_trending_movies():
+
+# filters trending movies if rating is a string 
+def filter_trending_movies_manually():
     # get a list of dictionaries({ratings__imdb:imdb_rating,pk:pk}) of movies released recently
-    movies = Movie.objects.filter(released__lt=get_todays_date_iso_format()).exclude(poster__iendswith="/nopicture.jpg").values("ratings__imdb","pk")
+    movies = filter_movies_by_date_ratings_poster()
+    movies = movies.values("ratings__imdb","pk")
     for movie in movies :
         # convert the imdb rating to a float (ratings is a json fied initially)
         try :
@@ -215,7 +231,44 @@ def filter_trending_movies():
     movies_filtered_pks = [movie["pk"] for movie in movies if movie["ratings__imdb"] >= 7]
     # get all the movies by the obtained pks
     return Movie.objects.filter(pk__in = movies_filtered_pks)
-    
+
+def filter_movies_by_date_ratings_poster():
+    exclude = Q(Q(poster__iendswith="/nopicture.jpg") | Q(ratings__imdb = "N/A"))
+    movies = Movie.objects.filter(released__lt=get_todays_date_iso_format())
+    movies = movies.exclude(exclude)
+    return movies 
+
+# filters trending movies if rating is a float  
+def filter_trending_movies():
+    movies = filter_movies_by_date_ratings_poster()
+    movies = movies.filter(ratings__imdb__gte = 7)
+    return movies
+
+def order_movies_by_imdb():
+    movies = filter_movies_by_date_ratings_poster()
+    movies = movies.order_by("-ratings__imdb")
+    return movies
+
+class TopImdbMoviesView(APIView):
+    def get(self,request):
+        start = request.query_params.get("start")
+        limit =request.query_params.get("limit")
+        movies = order_movies_by_imdb()
+        movies_limited =get_query_set_with_limit(movies,start=start,limit=limit)
+        if movies is None :
+            return Response({'error':"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
+        
+        count = movies_limited.count()
+        total_count = movies.count()
+        serializer = MoviesSerializer(movies_limited,many=True)
+        
+        response_dict = {
+            "movies" : serializer.data,
+            "count":count,
+            "total_count":total_count
+        }
+        
+        return Response(response_dict, status=status.HTTP_200_OK)
 
 # MostPopularMovies
 class TrendingMoviesView(APIView):
@@ -271,13 +324,13 @@ class SimilarMoviesView(APIView):
 class FavouritesViewSet(viewsets.ModelViewSet):
     queryset=Favorite.objects.all()
     serializer_class = FavouriteSerializer
-    lookup_field=['username','movie_id']
+    lookup_field=['id','movie_id']
     permission_classes=[IsAuthenticated]
 
     # get a favorite instance using user's username and movie's id instead of favorite id
-    def get_object(self,username,movie_id):
+    def get_object(self,id,movie_id):
         try: 
-            return Favorite.objects.get(user=User.objects.get(username=username), movie= Movie.objects.get(pk=movie_id))
+            return Favorite.objects.get(user=User.objects.get(pk=id), movie= Movie.objects.get(pk=movie_id))
         except:
             raise Http404()
         
@@ -314,9 +367,9 @@ class FavouritesViewSet(viewsets.ModelViewSet):
 
         return Response(response_dict,status=status.HTTP_200_OK)
     
-    def retrieve(self,request,username,movie_id):
+    def retrieve(self,request,id,movie_id):
         try:
-            self.get_object(username,movie_id) # get the favorite instance  using custom get_object()
+            self.get_object(id,movie_id) # get the favorite instance  using custom get_object()
             return Response({"found":True}, status=status.HTTP_200_OK) # if found send true
         except Http404:
             return Response({"found":False},status=status.HTTP_404_NOT_FOUND)
