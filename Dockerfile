@@ -5,7 +5,7 @@
 
 
 #use a docker base image to write on top of (add instructions to)
-FROM python:3 
+FROM python:3-alpine
 # set the workdirectory and if not found, create it (created in the container only not on the host machine)
 WORKDIR /usr/src/app/backend
 COPY requirements.txt .
@@ -13,8 +13,7 @@ COPY requirements.txt .
 run pip install -r requirements.txt
 # copy from host machine to the container file system (a virtual file system that is created on top of the host system)
 COPY . .
-COPY wait-for-it.sh /wait-for-it.sh
-RUN chmod +x /wait-for-it.sh
+
 # to run psql, docker-compose exec <service name of database> psql -U <postgres server Name>
 ENV PATH="$PATH:C:\Program Files\PostgreSQL\15\data"
 # expose the port to be accessed by other containers

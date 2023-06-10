@@ -280,7 +280,18 @@ class TrendingMoviesView(APIView):
             movies = get_query_set_with_limit(trending_movies_list, start,limit)
             if movies is None :
                     return Response({'error':"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
-            return Response({"movies":MoviesSerializer(movies, many=True).data},status=status.HTTP_200_OK)
+            
+            total_count = trending_movies_list.count()
+            count = movies.count()
+            serializer = MoviesSerializer(movies,many=True)
+            
+            response_dict = {
+                "movies" : serializer.data,
+                "count":count,
+                "total_count":total_count
+            }
+            
+            return Response(response_dict,status=status.HTTP_200_OK)
     
 class LatestMoviesView(APIView):
     def get(self,request):
@@ -290,7 +301,18 @@ class LatestMoviesView(APIView):
             movies = get_query_set_with_limit(latest_movies_list, start,limit)
             if movies is None :
                 return Response({"error":"invalid limit"},status = status.HTTP_400_BAD_REQUEST)
-            return Response({"movies":MoviesSerializer(movies, many=True).data}, status=status.HTTP_200_OK)
+            
+            total_count = latest_movies_list.count()
+            count = movies.count()
+            serializer = MoviesSerializer(movies,many=True)
+            
+            response_dict = {
+                "movies" : serializer.data,
+                "count":count,
+                "total_count":total_count
+            }
+
+            return Response(response_dict,status=status.HTTP_200_OK)
 
 # ComingSoon
 class UpcomingMoviesView(APIView):
@@ -302,7 +324,17 @@ class UpcomingMoviesView(APIView):
         movies = get_query_set_with_limit(upcoming_movies_list, start,limit)
         if movies is None :
             return Response({"error":"invalid limit"},status = status.HTTP_400_BAD_REQUEST)
-        return Response({"movies":MoviesSerializer(movies, many=True).data},status=status.HTTP_200_OK)
+        
+        total_count = upcoming_movies_list.count()
+        count = movies.count()
+        serializer = MoviesSerializer(movies,many=True)
+        
+        response_dict = {
+            "movies" : serializer.data,
+            "count":count,
+            "total_count":total_count
+        }
+        return Response(response_dict,status=status.HTTP_200_OK)
 
 class SimilarMoviesView(APIView):
     def get(self,request,id=None):
@@ -455,14 +487,16 @@ class MovieListApiView(generics.ListAPIView):
         # get the start and limit query strings if found else assign it to None
         start = request.query_params.get("start",None)
         limit = request.query_params.get("limit",None)
-
+        
+        print(int(start))
         #movies query set
         movies = self.get_queryset()
         #filter movies according to the available query params
-        filtered_movies = filter_movie_query_set(movies, params)
+        filtered_movies = filter_movie_query_set(movies, params).order_by('released')
 
         movies_total_count = filtered_movies.count()
 
+        
         #reduce the number of movies to the limit if available
         filtered_movies = get_query_set_with_limit(filtered_movies, start,limit)
 
