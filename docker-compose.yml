@@ -17,8 +17,8 @@ services :  # specify the different docker images to compose
     build : . #current directory
     depends_on:
       - db
-      - redis
     volumes :
+    #bind - mount : synchronize  host : container 
     # the host file system (file in the pc) is now plugged to the virtual container file system so data can be saved in it
       - .:/usr/src/app/backend # . : host directory relative to this file , /usr/src/app : container directory
     ports : #Activates the container to listen for specified port(s) from the world outside of the docker
@@ -64,7 +64,7 @@ services :  # specify the different docker images to compose
       - .:/usr/src/app/backend
     depends_on:
       - celery
-    
+
 # to run docker compose , docker-compose up
 
 

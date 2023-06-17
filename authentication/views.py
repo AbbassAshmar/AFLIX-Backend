@@ -19,7 +19,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.decorators import permission_classes
 import random 
 import string
-
+import re
 def get_object_or_404(object, pk, error_message):
     try:
         obj = object.objects.get(pk = pk)
@@ -34,6 +34,9 @@ def remove_tuples_from_list(arr, *args):
                 arr.remove(item)
     return arr
     
+def contains_letters_and_numbers(string):
+    return bool(re.search(r'^(?=.*[a-zA-Z])(?=.*[0-9])', string))
+
 
 class UserViewSet(viewsets.ViewSet):
     lookup_field = 'pk' # overrides the default field to look for in retrieve, the default is pk 
@@ -60,6 +63,14 @@ class UserViewSet(viewsets.ViewSet):
             while {'username':new_user['username']} in User.objects.values('username'):
                 usernamee = new_user['username']+ " #"+str(random.randrange(1000,99999))
                 new_user['username'] =usernamee
+        password =  new_user["password"]
+        if len(password) < 8 :
+            return Response({"error":"Your password must be at least 8 characters !"}, status=status.HTTP_400_BAD_REQUEST)
+        if not contains_letters_and_numbers(password):
+            return Response({"error":"Password must contain numbers and characters !"},status=status.HTTP_400_BAD_REQUEST)
+        confirm_pass = new_user["confirmPass"]
+        if not password == confirm_pass:
+            return Response({"error":"Passwords do not match !"},status=status.HTTP_400_BAD_REQUEST)
         new_user['pfp'] = None
         user =User.objects.create_user(username = new_user["username"], email=new_user["email"], password = new_user["password"],pfp=new_user["pfp"])
         token = Token.objects.create(user = user)

@@ -134,10 +134,11 @@ def SaveData(Apidata):
             return Response({"error" :movieSer.errors}, status=status.HTTP_404_NOT_FOUND)
 
 def callApi (name): 
+    # imdburl = f"https://imdb-api.com/en/API/Title/{ImdbApiKey}/{name}"
     imdburl = f"https://imdb-api.com/en/API/{name}/{ImdbApiKey}" #call the imdb api
     r = requests.get(imdburl).json() #parse the response to json then convert it to dictionary
     if r['errorMessage'] == '' : #check for error messages
-        for item in r["items"][:40] :
+        for item in r["items"][:20] :
             SaveData(item)
             print(item)
         return True
@@ -151,10 +152,10 @@ def setInterval(func,time,name):
         for n in name :
             func(n) # call the function responsible for calling an api at one of the endpoints
             event.wait(time) # wait for event.set(), if given wait for it then run the function
-        
+        print("done")
         
 # asign a function to thread, and specify the arguments in args=() parameter (a list of endpoints to call)
-thread = threading.Thread(target=setInterval,args=(callApi,100,["Top250Movies"]))
+thread = threading.Thread(target=setInterval,args=(callApi,5,['']))
 # thread.start() # create a separate thread for api requests asynchronously
 
 # InTheaters
@@ -164,6 +165,8 @@ class MoviesView(APIView):
             movies_names=["Avatar: The Way of Water","Babylon (I)","Strange World","The Fabelmans", 
                         "The Whale","The Menu","Violent Night","The Banshees of Inisherin",
                         "Black Panther: Wakanda Forever"]
+            movies_ids = ["tt1630029", "tt0460714","tt10298840","tt14208870","tt13833688",
+                          "tt12003946","tt11813216","tt9114286"]
             movies_set = Movie.objects.filter(title__in=movies_names)
             MoviesSer = MoviesSerializer(movies_set,many=True) 
             return Response(MoviesSer.data,status=status.HTTP_200_OK)
@@ -339,6 +342,7 @@ class UpcomingMoviesView(APIView):
 class SimilarMoviesView(APIView):
     def get(self,request,id=None):
         try:
+            print(id)
             movie = Movie.objects.get(pk = id)
         except ObjectDoesNotExist:
             return Response({"error":"movie does not exist"},status=status.HTTP_404_NOT_FOUND)
@@ -452,10 +456,13 @@ class MoviesCountApiView(APIView):
 #         return Response({"movies": movies.data},status=status.HTTP_200_OK)
 
 def filter_movie_query_set(query_set, query_params):
+        title=  query_params.get('title',None)
         genres = query_params.get('genre',None)
         rated = query_params.get('rated',None)
         released = query_params.get('released',None)
         query = Q()
+        if title :
+            query.add(Q(title__icontains = title[0]), Q.AND)
         if genres and "All" not in genres :
             try :
                 genre= [Genre.objects.get(name=g) for g in genres]
@@ -481,6 +488,12 @@ class MovieListApiView(generics.ListAPIView):
     queryset = Movie.objects.all()
     serializer_class = MoviesSerializer
     def list(self, request):
+        if len(self.get_queryset()) == 0 :
+            response_dict = {
+                        "movies":[],
+                        'count':0,
+                        'total_count':0}
+            return Response(response_dict, status= status.HTTP_404_NOT_FOUND)
         #convert query_params query_dict to a dict
         params = dict(request.query_params)
 
@@ -488,7 +501,6 @@ class MovieListApiView(generics.ListAPIView):
         start = request.query_params.get("start",None)
         limit = request.query_params.get("limit",None)
         
-        print(int(start))
         #movies query set
         movies = self.get_queryset()
         #filter movies according to the available query params
@@ -514,8 +526,12 @@ class MovieListApiView(generics.ListAPIView):
                         'total_count':movies_total_count}
         
         return Response(response_dict,status=status.HTTP_200_OK)
-        
-        
+
+class MoviesRetrieveApiView(generics.RetrieveAPIView):
+    queryset = Movie.objects.all()
+    serializer_class = MoviesSerializer
+    lookup_field = 'pk'
+
         
 class GenreListApiView(generics.ListAPIView):
     queryset = Genre.objects.all()
