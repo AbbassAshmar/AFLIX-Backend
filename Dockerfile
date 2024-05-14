@@ -9,8 +9,10 @@ FROM python:3-alpine
 # set the workdirectory and if not found, create it (created in the container only not on the host machine)
 WORKDIR /usr/src/app/backend
 COPY requirements.txt .
+
 # install requirements in the container work directory
 run pip install -r requirements.txt
+
 # copy from host machine to the container file system (a virtual file system that is created on top of the host system)
 COPY . .
 

@@ -342,7 +342,6 @@ class UpcomingMoviesView(APIView):
 class SimilarMoviesView(APIView):
     def get(self,request,id=None):
         try:
-            print(id)
             movie = Movie.objects.get(pk = id)
         except ObjectDoesNotExist:
             return Response({"error":"movie does not exist"},status=status.HTTP_404_NOT_FOUND)

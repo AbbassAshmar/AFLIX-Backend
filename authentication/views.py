@@ -13,7 +13,6 @@ from oauth2_provider.views import ProtectedResourceView
 from django.core.files.storage import default_storage
 from rest_framework import serializers
 import requests
-# from rest_framework.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.exceptions import NotFound
 from rest_framework.decorators import permission_classes
@@ -37,6 +36,14 @@ def remove_tuples_from_list(arr, *args):
 def contains_letters_and_numbers(string):
     return bool(re.search(r'^(?=.*[a-zA-Z])(?=.*[0-9])', string))
 
+def validate_password(password , confirm_password=None):
+    if len(password) < 8 :
+        return {"error":"Your password must be at least 8 characters !"}
+    if not contains_letters_and_numbers(password):
+        return {"error":"Password must contain numbers and characters !"}
+    if not password == confirm_password and confirm_password!=None:
+        return {"error":"Passwords do not match !"}
+    return None
 
 class UserViewSet(viewsets.ViewSet):
     lookup_field = 'pk' # overrides the default field to look for in retrieve, the default is pk 
@@ -64,13 +71,10 @@ class UserViewSet(viewsets.ViewSet):
                 usernamee = new_user['username']+ " #"+str(random.randrange(1000,99999))
                 new_user['username'] =usernamee
         password =  new_user["password"]
-        if len(password) < 8 :
-            return Response({"error":"Your password must be at least 8 characters !"}, status=status.HTTP_400_BAD_REQUEST)
-        if not contains_letters_and_numbers(password):
-            return Response({"error":"Password must contain numbers and characters !"},status=status.HTTP_400_BAD_REQUEST)
-        confirm_pass = new_user["confirmPass"]
-        if not password == confirm_pass:
-            return Response({"error":"Passwords do not match !"},status=status.HTTP_400_BAD_REQUEST)
+        confirm_pass =new_user["confirmPass"]
+        validatePass=validate_password(password,confirm_pass) 
+        if validatePass is not None:
+            return Response(validatePass,status=status.HTTP_400_BAD_REQUEST)
         new_user['pfp'] = None
         user =User.objects.create_user(username = new_user["username"], email=new_user["email"], password = new_user["password"],pfp=new_user["pfp"])
         token = Token.objects.create(user = user)
@@ -94,7 +98,22 @@ class UserViewSet(viewsets.ViewSet):
             return Response({"error": "not authorized"}, status=status.HTTP_403_FORBIDDEN)
         # remove empty info from the request's body
         user_info = {i:request.data[i] for i in request.data if not (len(request.data[i]) == 0)}
-        
+
+        # if password is in requests body , update it alone
+        if "newPassword" in user_info and user_info["newPassword"] :
+            new_pass = user_info["newPassword"] 
+            confirm_pass = user_info["confirmPassword"]
+            # check if old password is correct
+            if not check_password(user_info['oldPassword'],user.password):
+                return Response({"error":"old password is not correct"},status=status.HTTP_400_BAD_REQUEST)
+            validatePass=validate_password(new_pass,confirm_pass) 
+            if validatePass is not None:
+                return Response(validatePass,status=status.HTTP_400_BAD_REQUEST)
+            # update the password of the user
+            user.set_password(new_pass)
+            # update the password of the instance in the database
+            user.save(update_fields=["password"])
+
         # check if the new email is in the info to be updated
         if "email" in user_info :
             try:
@@ -109,35 +128,20 @@ class UserViewSet(viewsets.ViewSet):
             # if the email is not used and different from the original , continue 
             except ObjectDoesNotExist:
                 pass
-        # if password is in requests body , update it alone
-        if "newPassword" in user_info and user_info["newPassword"] :
-            # check if old password is correct
-            if not check_password(user_info['oldPassword'],user.password):
-                return Response({"error":"old password is not correct"},status=status.HTTP_400_BAD_REQUEST)
-            #check if new password and confirm password are equal 
-            if not user_info["newPassword"] == user_info["confirmPassword"]:
-                return Response({"error":"passwords don't match"},status=status.HTTP_400_BAD_REQUEST)
-            # update the password of the user
-            user.set_password(user_info['newPassword'])
-            # update the password of the instance in the database
-            user.save(update_fields=["password"])
         
         # create a new array of user's info without the passwords (already updated)
         cleaned_array = remove_tuples_from_list(list(user_info.items()),"newPassword","oldPassword","confirmPassword","pfp") 
         # the message to be sent in the response ,(contains updated info)
         response_message = {}
-
         # save the propfile picture if found using model.ImageField.save(name,image)   
         if 'pfp' in user_info and user_info['pfp']:
             user.pfp.save('pfp.jpg',user_info["pfp"])   
             response_message["pfp"] = "http://127.0.0.1:8000"+user.pfp.url
-
         # update the fields of the user model by the cleaned array (password already updated)
         # equivalent to : user.email = email , user.username = username ...
         for info, value in cleaned_array:
             setattr(user, info, value)
             response_message[info] = value
-            
         # update the row in the db (only update changed fields)
         user.save(update_fields=[i[0] for i in cleaned_array])
         return Response(response_message, status=status.HTTP_200_OK)  
