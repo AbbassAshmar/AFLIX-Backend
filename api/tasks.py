@@ -1,18 +1,27 @@
 from backend.celery import app
 import requests
 from .views import SaveData
+from dotenv import load_dotenv
+import os
 
-ImdbApiKey = "k_ofu8b6bo"
+load_dotenv('../')
+IMDB_API_KEY = os.getenv("IMDB_API_KEY")
+
+# https://api.themoviedb.org/3/movie/popular?language=en-US&page=1
+
+
 def apiCall(name):
-    imdburl = f"https://imdb-api.com/en/API/{name}/{ImdbApiKey}" #call the imdb api
-    r = requests.get(imdburl).json() #parse the response to json then convert it to dictionary
-    if r['errorMessage'] == '' : #check for error messages
+    imdburl = f"https://imdb-api.com/en/API/{name}/{IMDB_API_KEY}" 
+    r = requests.get(imdburl).json()
+    if r['errorMessage'] == '' :
         for item in r["items"][:40] :
             SaveData(item)
+            
 @app.task
 def InTheaters():
     apiCall("InTheaters")
     return True
+
 @app.task
 def MostPopularMovies():
     apiCall("MostPopularMovies")

@@ -31,7 +31,7 @@ router.register('movies/favorites',FavouritesViewSet,basename="fav")
 
 urlpatterns =[
     path("",include(router.urls)),
-    path("", MoviesView.as_view(), name="index"),
+    path("movies/slider", MoviesView.as_view(), name="index"),
 
     path("movies/trending/", TrendingMoviesView.as_view(), name="movie-trending"),
     path("movies/latest/", LatestMoviesView.as_view(), name="movie-latest"),

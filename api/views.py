@@ -11,28 +11,195 @@ from django.core.exceptions import ObjectDoesNotExist
 from datetime import date
 import threading
 from django.http import Http404
-from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q 
 from django.db.models import Count
 from authentication.views import get_object_or_404
-# Create your views here.
-ImdbApiKey = "k_ofu8b6bo"
+from dotenv import load_dotenv
+import os
+
+load_dotenv('../')
+
+OMDB_API_KEY = os.getenv("OMDB_API_KEY")
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+
+# {
+#     "adult": false,
+#     "backdrop_path": "/icmmSD4vTTDKOq2vvdulafOGw93.jpg",
+#     "genre_ids": [
+#         28,
+#         878
+#     ],
+#     "id": 603,
+#     "original_language": "en",
+#     "original_title": "The Matrix",
+#     "overview": "Set in the 22nd century, The Matrix tells the story of a computer hacker who joins a group of underground insurgents fighting the vast and powerful computers who now rule the earth.",
+#     "popularity": 480.776,
+#     "poster_path": "/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg",
+#     "release_date": "1999-03-31",
+#     "title": "The Matrix",
+#     "video": false,
+#     "vote_average": 8.215,
+#     "vote_count": 24865
+# },
+
+{"Title":"Fallout",
+ "Year":"2024–",
+ "Rated":"TV-MA",
+ "Released":"10 Apr 2024",
+ "Runtime":"N/A",
+ "Genre":"Action, Adventure, Drama",
+ "Director":"N/A",
+ "Writer":"Geneva Robertson-Dworet, Graham Wagner",
+ "Actors":"Ella Purnell, Aaron Moten, Walton Goggins",
+ "Plot":"In a future, post-apocalyptic Los Angeles brought about by nuclear decimation, citizens must live in underground bunkers to protect themselves from radiation, mutants and bandits.",
+ "Language":"English",
+ "Country":"United States",
+ "Awards":"N/A",
+ "Poster":"https://m.media-amazon.com/images/M/MV5BN2EwNjFhMmEtZDc4YS00OTUwLTkyODEtMzViMzliZWIyMzYxXkEyXkFqcGdeQXVyMjkwOTAyMDU@._V1_SX300.jpg",
+ "Ratings":[{"Source":"Internet Movie Database","Value":"8.7/10"}],
+ "Metascore":"N/A",
+ "imdbRating":"8.7",
+ "imdbVotes":"40,394",
+ "imdbID":"tt12637874",
+ "Type":"series",
+ "totalSeasons":"1",
+ "Response":"True"}
+
+# "title":Apidata["title"] //
+# "trailer":trailer
+# "image":image //
+# "thumbnail":thumbnail 
+# "imdbId":Apidata['id']
+# "poster":poster //
+# "ratings":{"imdb":imdb , "metacritics":meta} // 
+# "plot":plot //
+# "contentRate":rating //
+# "duration":duration
+# "released":released //
+# "genre":genres_id //
+# "director":director.pk //
+
+# OMDB_URL = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&i={Apidata['id']}"
+
+# Videos_TMDB_URL = https://api.themoviedb.org/3/movie/{movie_id}/videos //https://www.youtube.com/watch?v={key}
+# GENRES_LIST_TMDB_URL = https://api.themoviedb.org/3/genre/movie/list?language=en-US
+# POPULAR_TMDB_URL = https://api.themoviedb.org/3/movie/popular?language=en-US&page=1
+# UPCOMING_TMDB_URL = https://api.themoviedb.org/3/movie/upcoming?language=en-US&page=1
+# TOPRATED_TMDB_URL = https://api.themoviedb.org/3/movie/top_rated?language=en-US&page=1
+# NOWPLAYING_TMDB_URL = https://api.themoviedb.org/3/movie/now_playing?language=en-US&page=1
+
+
+def fetchMovieOmdbApi(OMDB_API_KEY, name) : 
+    URL = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={name.replace(" ", "+")}"
+    return requests.get(URL).json()
+
+
+def fetchGenresListTmdbApi(TMDB_API_KEY):
+    URL = f"https://api.themoviedb.org/3/genre/movie/list?language=en-US"
+    HEADERS = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {TMDB_API_KEY}"
+    }
+
+    return requests.get(URL, headers=HEADERS).json()
+
+
+def fetchMoviesListTmdbApi(type, page, TMDB_API_KEY):
+    URL = f"https://api.themoviedb.org/3/movie/{type}?language=en-US&page={page}"
+    HEADERS = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {TMDB_API_KEY}"
+    }
+
+    return requests.get(URL, headers=HEADERS).json()
+    
+
+def extractDataFromTmdbGenreRequest(data, tmdbGenre) :
+    try :
+        Genre.objects.get(name=tmdbGenre['name']) 
+    except ObjectDoesNotExist:
+        data.append(Genre(pk=tmdbGenre['id'], name=tmdbGenre['name']))
+
+def extractDataFromTmdbMovieRequest(data,tmdbMovie):
+    data['title'] = tmdbMovie['title']
+    data['poster'] = tmdbMovie['poster_path']
+    data['image'] = tmdbMovie['backdrop_path']
+    data['plot'] = tmdbMovie['overview']
+    data['released'] = tmdbMovie['release_date']
+    data['genre'] = tmdbMovie['genre_ids']
+    
+
+def extractDataFromOmdbMovieRequest(data,omdbMovie):
+    if not omdbMovie : 
+        return
+    
+    data['ratings'] = {
+        'metacritics': omdbMovie.get("Metascore", 'N/A'),
+        'imdb' : omdbMovie.get("imdbRating", 'N/A') 
+    }
+    data['contentRate'] = omdbMovie.get("Rated", 'N/A') 
+    data['duration'] = omdbMovie.get("Runtime", 'N/A')
+    data['imdbId']= omdbMovie.get('imdbID', None)
+    data['director'] = None
+    if (omdbMovie.get("Director", 'N/A')!= "N/A") : 
+        director,created =  Directors.objects.get_or_create(name = omdbMovie['Director'])
+        data['director'] = director
+
+
+def getGenres(TMDB_API_KEY):
+    data= []
+    genresList = fetchGenresListTmdbApi(TMDB_API_KEY)
+
+    if not genresList.get('success', True) :
+        return False
+    
+    for genre in genresList['genres'] :
+        extractDataFromTmdbGenreRequest(data,genre)
+
+    Genre.objects.bulk_create(data)
+
+
+def getMovies(type,page, TMDB_API_KEY, OMDB_API_KEY):
+    tmdb_movies_list = fetchMoviesListTmdbApi(type,page,TMDB_API_KEY)
+    
+    for item in tmdb_movies_list['results']:
+        if (not item.get('title',False) or Movie.objects.filter(title=item['title']).exists()) :
+            continue
+
+        data={"thumbnail":None}
+        omdbResponse = fetchMovieOmdbApi(OMDB_API_KEY, item['title'])
+
+        extractDataFromTmdbMovieRequest(data,item)
+        extractDataFromOmdbMovieRequest(data, omdbResponse)
+
+        genres = data.pop('genre', None)
+        movie = Movie.objects.create(**data)
+
+        if genres:
+            genre_objects = Genre.objects.filter(id__in=genres)
+            movie.genre.set(genre_objects)
+
+
 
 def SaveData(Apidata):
-    url = f"http://www.omdbapi.com/?apikey=b6661a6a&i={Apidata['id']}"
+    url = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&i={Apidata['id']}"
     omdbCall = requests.get(url).json()
+
     if omdbCall['Response'] == 'False':
         add_to_omdb = ["Director","Plot","Runtime","Released","Poster","imdbRating","Genre"]
         for i in add_to_omdb :
             omdbCall[i]= "N/A" #if omdbCall is False, add these to it and set them 'N/A'
+
     dir = Apidata["crew"].split(",")[0].replace("(dir.)",'') if 'crew' in Apidata else Apidata["directors"] 
     if dir == None:
         dir = omdbCall["Director"]
+
     dir = dir.split(",")[0] if ',' in dir else dir
     director, created = Directors.objects.get_or_create(name = dir) #create the director if not found else get it 
     genreList = []
     response_genre =Apidata["genres"].split(", ") if 'genres' in Apidata else omdbCall["Genre"].split(", ") # get genre list 
+
     for genre in response_genre:
         try :
             Genre.objects.get(name=genre) # if the genre is not in the db, add it to another list of dictionaries(genreList)
@@ -42,6 +209,7 @@ def SaveData(Apidata):
         genres = GenresSerializer(data=genreList,many=True)
         if genres.is_valid():
             genres.save() # save the genres to the db the need to be added 
+
     try :
         Movie.objects.get(title = Apidata["title"]) # check if the the movie is in the db .
     # if it doesn't get the genres ids and director id of it + all the other data from the omdb and imdb api calls
@@ -98,17 +266,18 @@ def SaveData(Apidata):
             poster = omdbCall["Poster"]
         if poster =="N/A" or poster==None: # if the poster is not available , set it to a default poster
             poster = "https://imdb-api.com/images/128x176/nopicture.jpg"
+
         # get the trailer and the thumbnail of a movie from another endpoint
-        trailerCall = requests.get(f"https://imdb-api.com/en/API/Trailer/{ImdbApiKey}/{Apidata['id']}").json()
+        trailerCall = requests.get(f"https://imdb-api.com/en/API/Trailer/{TMDB_API_KEY}/{Apidata['id']}").json()
         if trailerCall['errorMessage'] =="":
-        
             trailer = trailerCall["linkEmbed"] 
             thumbnail = trailerCall["thumbnailUrl"]
         else : 
             trailer = "https://imdb-api.com/images/128x176/nopicture.jpg"
             thumbnail = "https://imdb-api.com/images/128x176/nopicture.jpg"
+
         # get the image of a movie from another endpoint
-        imageCall = requests.get(f"https://imdb-api.com/en/API/Images/{ImdbApiKey}/{Apidata['id']}/Short").json()
+        imageCall = requests.get(f"https://imdb-api.com/en/API/Images/{TMDB_API_KEY}/{Apidata['id']}/Short").json()
         if imageCall['errorMessage'] =="" and len(imageCall['items'])>1 :
             image = imageCall['items'][1]["image"]
         else : 
@@ -127,6 +296,7 @@ def SaveData(Apidata):
         "released":released,
         "genre":genres_id,
         "director":director.pk}
+
         movieSer = MoviesSerializer(data=data) # create the unexisting movie 
         if movieSer.is_valid():
             movieSer.save()
@@ -134,25 +304,21 @@ def SaveData(Apidata):
             return Response({"error" :movieSer.errors}, status=status.HTTP_404_NOT_FOUND)
 
 def callApi (name): 
-    # imdburl = f"https://imdb-api.com/en/API/Title/{ImdbApiKey}/{name}"
-    imdburl = f"https://imdb-api.com/en/API/{name}/{ImdbApiKey}" #call the imdb api
+    imdburl = f"https://imdb-api.com/en/API/{name}/{TMDB_API_KEY}" #call the imdb api
     r = requests.get(imdburl).json() #parse the response to json then convert it to dictionary
     if r['errorMessage'] == '' : #check for error messages
         for item in r["items"][:20] :
             SaveData(item)
-            print(item)
         return True
     else :
         return False
 
 event = threading.Event() # Create an Event to control the timimg of the thread
 def setInterval(func,time,name):
-    print("here")
     while True :
         for n in name :
             func(n) # call the function responsible for calling an api at one of the endpoints
             event.wait(time) # wait for event.set(), if given wait for it then run the function
-        print("done")
         
 # asign a function to thread, and specify the arguments in args=() parameter (a list of endpoints to call)
 thread = threading.Thread(target=setInterval,args=(callApi,5,['']))
@@ -172,6 +338,7 @@ class MoviesView(APIView):
             return Response(MoviesSer.data,status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error" :str(e)}, status=status.HTTP_404_NOT_FOUND)
+
         
 def get_query_set_with_limit(query_set,start, limit): 
     # if limit is specified as a query string , return limited query set, else query set
@@ -436,23 +603,6 @@ class MoviesCountApiView(APIView):
         movies_count = movies.count()
         return Response({"movies_count":movies_count},status = status.HTTP_200_OK)
 
-# class MovieListApiView(generics.ListAPIView):
-#     queryset = Movie.objects.all()
-#     serializer_class = MoviesSerializer
-#     def get_queryset(self, limit=None):
-#         if limit is not None :
-#             return Movie.objects.all()[:limit]
-#         return Movie.objects.all()
-#     def list(self , request):
-#         movies = self.serializer_class(self.get_queryset() ,many=True)
-#         if request.query_params.get("limit") :
-#             limit = request.query_params.get("limit")[0]
-#             try :
-#                 limit = int(limit)
-#             except ValueError:
-#                 return Response({"error":"invalid limit"},status=status.HTTP_400_BAD_REQUEST)
-#             movies = self.serializer_class(self.get_queryset(limit=(limit)),many=True)
-#         return Response({"movies": movies.data},status=status.HTTP_200_OK)
 
 def filter_movie_query_set(query_set, query_params):
         title=  query_params.get('title',None)

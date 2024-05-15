@@ -15,19 +15,19 @@ class Genre(models.Model):
 
 class Movie(models.Model) :
     title = models.CharField(max_length=700, blank=False,null=False,unique=True)
-    poster = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg")
     ratings = models.JSONField()
     released = models.DateField(max_length=256,null=True)
     genre = models.ManyToManyField(Genre)
     plot = models.TextField()
     contentRate = models.CharField(max_length=256,blank=True,null=True)
     director = models.ForeignKey(Directors, null=True,on_delete=models.SET_NULL,related_name='movies')
-    duration = models.IntegerField()
+    duration = models.CharField(max_length=225)
     commentsNumber = models.PositiveIntegerField(default=0)
-    image = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg")
-    trailer = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg")
+    poster = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg",null=True)
+    image = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
+    trailer = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
+    thumbnail = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
     imdbId = models.CharField(max_length=300,null=True,blank=True,unique=True)
-    thumbnail = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg")
     def __str__(self):
         return self.title 
 # many favorites can be associated with the same movie (many movies can be set as favorite), nut only one movie can be set as favorite

@@ -7,7 +7,8 @@ import dotenv
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
-    dotenv.read_dotenv()
+    dotenv.load_dotenv()
+    
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
