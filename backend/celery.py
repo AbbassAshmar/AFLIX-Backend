@@ -30,6 +30,3 @@ app.conf.beat_schedule = {
         'schedule':crontab(hour='5', minute='0',day_of_week='wed,sat'),
     }
 }
-# @app.task(bind=True)
-# def debug_task(self):
-#     print(f'Request: {self.request!r}')

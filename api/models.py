@@ -1,8 +1,12 @@
 from django.db import models
 from authentication.models import User
 
-# omdb key : b6661a6a
-#multiple movies to one director , but each movie has a sing
+
+
+class PageInfo(models.Model):
+    endpoint = models.CharField(max_length=250, unique=True)
+    page = models.IntegerField(default=1)
+
 class Directors(models.Model):
     name= models.CharField(max_length=256, null=True,unique=True)
     def __str__(self):

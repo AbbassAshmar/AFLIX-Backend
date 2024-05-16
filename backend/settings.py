@@ -128,6 +128,17 @@ DATABASES = {
 }
 
 
+# Caching Configuration, using redis database 0, '1' is used by celery
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': "redis://redis:6379/0",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
 
@@ -179,5 +190,6 @@ ALLOWED_HOSTS = ['*']
 LOGIN_URL='/admin/login/'
 
 
-# Celery Configuration
-CELERY_BROKER_URL = "redis://redis:6379/0"
+
+# Celery Configuration, using redis database 0 
+CELERY_BROKER_URL = "redis://redis:6379/1"
