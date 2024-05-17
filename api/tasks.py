@@ -1,15 +1,14 @@
-from backend.celery import app
+from backend.celeryFile import app
 import requests
 from .views import SaveData
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import os
 from .models import Movie, Genre, Directors, PageInfo
 from django.core.exceptions import ObjectDoesNotExist
 
+# dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+load_dotenv(find_dotenv())
 
-
-
-load_dotenv('../')
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 OMDB_API_KEY = os.getenv("OMDB_API_KEY")
 
@@ -31,7 +30,7 @@ def getNextPage(type):
 
 
 def fetchMovieOmdbApi(OMDB_API_KEY, name) : 
-    URL = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={name.replace(" ", "+")}"
+    URL = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={name.replace(' ', '+')}"
     return requests.get(URL).json()
 
 def fetchGenresListTmdbApi(TMDB_API_KEY):
@@ -87,16 +86,23 @@ def getGenres(TMDB_API_KEY):
     data= []
     genresList = fetchGenresListTmdbApi(TMDB_API_KEY)
 
-    if not genresList.get('success', True) :
+    if "success" in genresList and not genresList['success'] :
         return False
     
     for genre in genresList['genres'] :
         extractDataFromTmdbGenreRequest(data,genre)
 
     Genre.objects.bulk_create(data)
+    return True
 
 def getMovies(type,page, TMDB_API_KEY, OMDB_API_KEY):
     tmdb_movies_list = fetchMoviesListTmdbApi(type,page,TMDB_API_KEY)
+
+    if "success" in tmdb_movies_list and not tmdb_movies_list['success'] :
+        return False
+
+    if not "results" in tmdb_movies_list : 
+        return False
     
     for item in tmdb_movies_list['results']:
         if (not item.get('title',False) or Movie.objects.filter(title=item['title']).exists()) :
@@ -114,6 +120,8 @@ def getMovies(type,page, TMDB_API_KEY, OMDB_API_KEY):
         if genres:
             genre_objects = Genre.objects.filter(id__in=genres)
             movie.genre.set(genre_objects)
+
+    return True
 
 def apiCall(type):
     page = getNextPage(type)

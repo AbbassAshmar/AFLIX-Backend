@@ -1,11 +1,11 @@
 from django.db import models
 from authentication.models import User
 
-
-
 class PageInfo(models.Model):
     endpoint = models.CharField(max_length=250, unique=True)
     page = models.IntegerField(default=1)
+    def __str__(self):
+        return self.endpoint + " : " + str(self.page)
 
 class Directors(models.Model):
     name= models.CharField(max_length=256, null=True,unique=True)

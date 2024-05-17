@@ -24,9 +24,6 @@ services :  # specify the different docker images to compose
     ports : #Activates the container to listen for specified port(s) from the world outside of the docker
           #(can be same host machine or a different machine) AND also accessible world inside docker.
       - 8000:8000 #port 8000 on container (externally) currosponds to 8000 on pc,  (eternally)
-    # command : ["/wait-for-it.sh", "-t", "40", "db:5432", "--", "python", "manage.py","runserver","0.0.0.0:8000"]
-    # command: sh -c "/wait-for-it.sh db:5432 -t 40 -- python manage.py runserver 0.0.0.0:8000 " # overwrite CMD in docker file
-
 
   react :
     restart: always
@@ -51,7 +48,7 @@ services :  # specify the different docker images to compose
 
   celery :
     build : . #same build as django 
-    command : celery -A backend worker -l INFO
+    command : celery -A backend worker --beat -l INFO
     volumes : 
       - .:/usr/src/app/backend
     depends_on:

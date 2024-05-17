@@ -284,8 +284,8 @@ def filter_movies_by_date_ratings_poster():
 
 def filter_upcoming_movies():
     return (Movie.objects.filter(released__gt = get_todays_date_iso_format()).
-           order_by("-released").
-           exclude(poster__iendswith="/nopicture.jpg")
+        order_by("-released").
+        exclude(poster__iendswith="/nopicture.jpg")
     )
 
 
@@ -293,8 +293,8 @@ def filter_latest_movies(query_set=None):
     if not query_set :
         query_set = Movie.objects.all()
     return (query_set.filter(released__lte= get_todays_date_iso_format()).
-           order_by("-released").
-           exclude(poster__iendswith="/nopicture.jpg")
+        order_by("-released").
+        exclude(poster__iendswith="/nopicture.jpg")
     )
 
 # filters trending movies if rating is a string 

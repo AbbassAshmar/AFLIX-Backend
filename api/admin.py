@@ -6,4 +6,5 @@ admin.site.register(Directors)
 admin.site.register(Movie)
 admin.site.register(Genre)
 admin.site.register(Favorite)
+admin.site.register(PageInfo)
 # Register your models here.

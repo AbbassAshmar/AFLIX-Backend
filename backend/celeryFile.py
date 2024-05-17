@@ -15,11 +15,11 @@ app.config_from_object('django.conf:settings', namespace="CELERY")
 #autodiscover files that are named tasks
 app.autodiscover_tasks()
 
+# UTC time zone by default
 app.conf.beat_schedule = {
     'InTheaters task': {
         'task': 'api.tasks.InTheaters',
         'schedule':crontab(hour='5', minute='0',day_of_week='mon,thu,sun'),
-        # 'schedule': crontab(hour=7, minute=30, day_of_week=1),
     },
     'MostPopularMovies task':{
         'task': 'api.tasks.MostPopularMovies',

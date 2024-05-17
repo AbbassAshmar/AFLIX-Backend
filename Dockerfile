@@ -5,7 +5,7 @@
 
 
 #use a docker base image to write on top of (add instructions to)
-FROM python:3-alpine
+FROM python:3.9-alpine
 # set the workdirectory and if not found, create it (created in the container only not on the host machine)
 WORKDIR /usr/src/app/backend
 COPY requirements.txt .
