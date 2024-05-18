@@ -6,28 +6,30 @@ import os
 from .models import Movie, Genre, Directors, PageInfo
 from django.core.exceptions import ObjectDoesNotExist
 
-# dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
 load_dotenv(find_dotenv())
 
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 OMDB_API_KEY = os.getenv("OMDB_API_KEY")
 
+
+def getHeaders(apiKey):
+    return {
+        "accept": "application/json",
+        "Authorization": f"Bearer {apiKey}"
+    }
+
 def getNextPage(type):
-    # Try to get the PageInfo object for the given type
     page_row = PageInfo.objects.filter(endpoint=type).first()
+    if page_row is None: 
+        page_row = PageInfo.objects.create(page=1, endpoint=type)
 
-    # If it exists, increment the page number
-    if page_row is not None: 
-        page = page_row.page + 1
-        page_row.page = page
-        page_row.save()
-    else: 
-        # If it doesn't exist, create it with page 1 
-        page = 1
-        PageInfo.objects.create(page=page, endpoint=type)
+    return page_row.page
 
-    return page
-
+def incrementPage(type):
+    page_row = PageInfo.objects.filter(endpoint=type).first()
+    page = page_row.page + 1
+    page_row.page = page
+    page_row.save()
 
 def fetchMovieOmdbApi(OMDB_API_KEY, name) : 
     URL = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={name.replace(' ', '+')}"
@@ -35,22 +37,11 @@ def fetchMovieOmdbApi(OMDB_API_KEY, name) :
 
 def fetchGenresListTmdbApi(TMDB_API_KEY):
     URL = f"https://api.themoviedb.org/3/genre/movie/list?language=en-US"
-    HEADERS = {
-        "accept": "application/json",
-        "Authorization": f"Bearer {TMDB_API_KEY}"
-    }
-
-    return requests.get(URL, headers=HEADERS).json()
-
+    return requests.get(URL, headers=getHeaders(TMDB_API_KEY)).json()
 
 def fetchMoviesListTmdbApi(type, page, TMDB_API_KEY):
     URL = f"https://api.themoviedb.org/3/movie/{type}?language=en-US&page={page}"
-    HEADERS = {
-        "accept": "application/json",
-        "Authorization": f"Bearer {TMDB_API_KEY}"
-    }
-
-    return requests.get(URL, headers=HEADERS).json()
+    return requests.get(URL, headers=getHeaders(TMDB_API_KEY)).json()
     
 def extractDataFromTmdbGenreRequest(data, tmdbGenre) :
     try :
@@ -78,9 +69,19 @@ def extractDataFromOmdbMovieRequest(data,omdbMovie):
     data['duration'] = omdbMovie.get("Runtime", 'N/A')
     data['imdbId']= omdbMovie.get('imdbID', None)
     data['director'] = None
+
     if (omdbMovie.get("Director", 'N/A')!= "N/A") : 
         director,created =  Directors.objects.get_or_create(name = omdbMovie['Director'])
         data['director'] = director
+
+def getTrailer(TMDB_API_KEY, movieID):
+    URL = f"https://api.themoviedb.org/3/movie/{movieID}/videos"
+    response = requests.get(URL, headers=getHeaders(TMDB_API_KEY)).json()
+
+    print(response)
+    if 'results' in response and len(response['results']) > 0: 
+        return response['results'][0]
+    return {'key':None} 
 
 def getGenres(TMDB_API_KEY):
     data= []
@@ -95,7 +96,8 @@ def getGenres(TMDB_API_KEY):
     Genre.objects.bulk_create(data)
     return True
 
-def getMovies(type,page, TMDB_API_KEY, OMDB_API_KEY):
+def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
+    page = getNextPage(type)
     tmdb_movies_list = fetchMoviesListTmdbApi(type,page,TMDB_API_KEY)
 
     if "success" in tmdb_movies_list and not tmdb_movies_list['success'] :
@@ -105,10 +107,10 @@ def getMovies(type,page, TMDB_API_KEY, OMDB_API_KEY):
         return False
     
     for item in tmdb_movies_list['results']:
-        if (not item.get('title',False) or Movie.objects.filter(title=item['title']).exists()) :
+        if (not item.get('title',True) or Movie.objects.filter(title=item['title']).exists()) :
             continue
 
-        data={"thumbnail":None}
+        data={"thumbnail":None, 'trailer':getTrailer(TMDB_API_KEY, item['id']).get('key',None)}
         omdbResponse = fetchMovieOmdbApi(OMDB_API_KEY, item['title'])
 
         extractDataFromTmdbMovieRequest(data,item)
@@ -121,12 +123,12 @@ def getMovies(type,page, TMDB_API_KEY, OMDB_API_KEY):
             genre_objects = Genre.objects.filter(id__in=genres)
             movie.genre.set(genre_objects)
 
+    incrementPage(type)
     return True
 
 def apiCall(type):
-    page = getNextPage(type)
     getGenres(TMDB_API_KEY)
-    getMovies(type,page,TMDB_API_KEY,OMDB_API_KEY)
+    getMovies(type,TMDB_API_KEY,OMDB_API_KEY)
             
 @app.task
 def InTheaters():

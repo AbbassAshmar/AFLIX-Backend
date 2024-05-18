@@ -26,12 +26,12 @@ class Movie(models.Model) :
     contentRate = models.CharField(max_length=256,blank=True,null=True)
     director = models.ForeignKey(Directors, null=True,on_delete=models.SET_NULL,related_name='movies')
     duration = models.CharField(max_length=225)
-    commentsNumber = models.PositiveIntegerField(default=0)
+    trailer = models.URLField(default=None, null=True)
     poster = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg",null=True)
     image = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
-    trailer = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
     thumbnail = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
     imdbId = models.CharField(max_length=300,null=True,blank=True,unique=True)
+    
     def __str__(self):
         return self.title 
 # many favorites can be associated with the same movie (many movies can be set as favorite), nut only one movie can be set as favorite

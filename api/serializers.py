@@ -11,12 +11,31 @@ class MoviesSerializer(serializers.ModelSerializer):
     def to_representation(self, obj):
         # transforms internal representation (model instance) to external representation like dictionaty.
         data = super().to_representation(obj)
+
+        base_url = "http://image.tmdb.org/t/p/"
+        poster_size = "w92"
+        image_size= "w300"
+
+        if not data['image']  :
+            data['image'] = "https://imdb-api.com/images/128x176/nopicture.jpg"
+        
+        if not data['poster'] :
+            data['poster'] = "https://imdb-api.com/images/128x176/nopicture.jpg"
+
+        if data['image'].split("/")[-1] != "nopicture.jpg" : 
+            data['image'] = base_url + image_size + "/" + data['image']
+
+        if data['poster'].split("/")[-1] != "nopicture.jpg" : 
+            data['poster'] =  base_url + poster_size + "/" + data['poster']
+
+        if data['trailer'] :
+            data['trailer'] = f"https://www.youtube.com/watch?v={data['trailer']}"
+
         data["genre"]= [Genre.objects.get(pk=id).name for id in data['genre']]
-        try :
-            data["director"]= Directors.objects.get(pk=data["director"]).name
-        except :
-            data['director'] = None
+        data['director'] = DirectorsSerializer(Directors.objects.filter(pk=data['director']).first()).data
+
         return data
+    
     def to_internal_value(self, data): #executed during is_valid(), transforms any format (ex.json) to python respresentation (ex.dic).
         # the representation is saved in the database after the serializer calls update or create methods and passing the trans data.
         try: 

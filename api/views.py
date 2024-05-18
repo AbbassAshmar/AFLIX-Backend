@@ -83,14 +83,12 @@ TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 # OMDB_URL = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&i={Apidata['id']}"
 
 # Videos_TMDB_URL = https://api.themoviedb.org/3/movie/{movie_id}/videos //https://www.youtube.com/watch?v={key}
+
 # GENRES_LIST_TMDB_URL = https://api.themoviedb.org/3/genre/movie/list?language=en-US
 # POPULAR_TMDB_URL = https://api.themoviedb.org/3/movie/popular?language=en-US&page=1
 # UPCOMING_TMDB_URL = https://api.themoviedb.org/3/movie/upcoming?language=en-US&page=1
 # TOPRATED_TMDB_URL = https://api.themoviedb.org/3/movie/top_rated?language=en-US&page=1
 # NOWPLAYING_TMDB_URL = https://api.themoviedb.org/3/movie/now_playing?language=en-US&page=1
-
-
-
 
 
 def SaveData(Apidata):
