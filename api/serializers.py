@@ -13,7 +13,7 @@ class MoviesSerializer(serializers.ModelSerializer):
         data = super().to_representation(obj)
 
         base_url = "http://image.tmdb.org/t/p/"
-        poster_size = "w92"
+        poster_size = "w342"
         image_size= "w300"
 
         if not data['image']  :
@@ -59,14 +59,11 @@ class GenresSerializer(serializers.ModelSerializer):
         model= Genre
         fields ="__all__"
 
-class FavouriteSerializer(serializers.ModelSerializer):
+class ContentRatingSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Favorite
-        fields =['movie']
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        movie_instance= Movie.objects.get(pk = data['movie'])
-        data["movie"] = MoviesSerializer(movie_instance).data
-        return data
+        model= ContentRating
+        fields ="__all__"
+
+
 
     

@@ -9,7 +9,7 @@ urlpatterns = [
     path('replies/',ReplyApiView.as_view(),name="replies"),
     path('replies/<int:pk>',ReplyApiView.as_view(),name="replies"),
 
-    path('movie-comments-replies/<int:pk>',ListCommentsRepliesApiView.as_view(),),
+    path('movies/<int:movie_id>/comments-and-replies/',CommentReplyApiView.as_view(),),
 
     path("like/", LikesView.as_view(),),
     path("dislike/", DislikesView.as_view(),),

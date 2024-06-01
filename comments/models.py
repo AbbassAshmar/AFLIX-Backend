@@ -18,19 +18,19 @@ class Comment(Base):
     likes_dislikes = models.ManyToManyField(User, through="CommentLikeDislike")
 
 class Reply(Base):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="Replies",null=False)
-    movie = models.ForeignKey("api.Movie",on_delete=models.CASCADE,null=False,default=1)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="replies",null=False)
+    movie = models.ForeignKey("api.Movie",on_delete=models.CASCADE,related_name="replies",null=False)
     parent_comment = models.ForeignKey(Comment, on_delete=models.CASCADE,related_name="replies",null=False)
-    replying_to = models.ForeignKey("self",on_delete=models.CASCADE,related_name="replying_to",null=True)
+    replying_to = models.ForeignKey("self",on_delete=models.CASCADE,related_name="replied_to_me",null=True,blank=True)
     likes_dislikes = models.ManyToManyField(User, through="ReplyLikeDislike")
 
 class CommentLikeDislike(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
-    interaction_type = models.IntegerField(default=0,null=False,validators=[MinValueValidator(0),MaxValueValidator(3)])
+    interaction_type = models.IntegerField(default=0,null=False,validators=[MinValueValidator(0),MaxValueValidator(2)])
 
 class ReplyLikeDislike(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     reply = models.ForeignKey(Reply, on_delete=models.CASCADE)
-    interaction_type = models.IntegerField(default=0,null=False,validators=[MinValueValidator(0),MaxValueValidator(3)])
+    interaction_type = models.IntegerField(default=0,null=False,validators=[MinValueValidator(0),MaxValueValidator(2)])
     # 0-> no like or dislike , 1->like, 2->dislike

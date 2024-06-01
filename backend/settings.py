@@ -98,6 +98,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'backend.wsgi.application'
 
 REST_FRAMEWORK = {
+    'EXCEPTION_HANDLER': 'custom_exceptions_handler.custom_exceptions_handler.custom_exceptions_handler',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication'
     ]

@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from authentication.views import get_object_or_404
 from django.db.models import F
 from rest_framework.authtoken.models import Token
-from .serializers import CommentSerializer,ReplySerializer,CommentReplySerializer
+from .serializers import CommentSerializer,ReplySerializer, CommentReplySerializer
 from rest_framework.response import Response
 from rest_framework import serializers
 from authentication.models import User
@@ -14,13 +14,10 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets,status
 from django.utils import timezone
 
-def get_comments_count_of_movie(movie_instance):
-    comments_count = movie_instance.comments.count()
-    replies_count = Reply.objects.filter(parent_comment__movie=movie_instance).count()
-    return comments_count + replies_count
 
 class CommentApiView(APIView):
     permission_classes=[IsAuthenticated]
+
 
     def post(self, request):
         user = Token.objects.get(key=request.headers["Authorization"].split(' ')[1]).user
@@ -38,7 +35,7 @@ class CommentApiView(APIView):
             return_data = {
                 "data":{"action" : "created"},
                 "error":None,
-                "metadata":{"comments_count":get_comments_count_of_movie(movie)},
+                "metadata":{"comments_count":movie.comments_count},
                 "status":'success'
             }
             return Response(return_data,status=status.HTTP_201_CREATED)
@@ -74,7 +71,7 @@ class CommentApiView(APIView):
         return_data = {
             "data":{"action" : "deleted"},
             "error":None,
-            "metadata":{"comments_count":get_comments_count_of_movie(movie)},
+            "metadata":{"comments_count":movie.comments_count},
             "status":'success'
         }
 
@@ -88,10 +85,10 @@ class ReplyApiView(APIView):
             user = Token.objects.get(key=request.headers["Authorization"].split(' ')[1]).user
             parent_comment = get_object_or_404(Comment, request.data['parent_comment'], "parent comment not provided")
             movie = get_object_or_404(Movie, request.data['movie'],"movie doesn't exist")
-            replying_to = parent_comment
+            replying_to = None
 
             if parent_comment.id !=  request.data["replying_to"]:
-                replying_to = get_object_or_404(Reply, request.data['replying_to'], "comment you are replying to doe not exist.")
+                replying_to = get_object_or_404(Reply, request.data['replying_to'], "comment you are replying to does not exist.")
          
             data= {
                 'user':user.pk,
@@ -108,7 +105,7 @@ class ReplyApiView(APIView):
                 return_data = {
                     "data":{"action" : "created"},
                     "error":None,
-                    "metadata":{"comments_count":get_comments_count_of_movie(movie)},
+                    "metadata":{"comments_count":movie.comments_count},
                     "status":'success'
                 }
                 return Response(return_data,status=status.HTTP_201_CREATED)
@@ -142,29 +139,26 @@ class ReplyApiView(APIView):
         return_data = {
             "data":{"action" : "deleted"},
             "error":None,
-            "metadata":{"comments_count":get_comments_count_of_movie(movie)},
+            "metadata":{"comments_count":movie.comments_count},
             "status":'success'
         }
 
         return Response(return_data,status=status.HTTP_200_OK)
 
 
-class ListCommentsRepliesApiView(APIView):
-    def get(self,request, pk=None):
-        movie = get_object_or_404(Movie, pk,"movie doesn't exist.")
-        comments = movie.comments.order_by("-date")
-    
-        commentsSerializer = CommentReplySerializer(comments,many=True)
+class CommentReplyApiView(APIView):
+    def get(self,request, movie_id=None):
+        movie = get_object_or_404(Movie, movie_id,"movie doesn't exist.")
+        comments = movie.comments.order_by("-created_at")
+        comments_serializer = CommentReplySerializer(comments, many=True)
         returned_data = { 
             "status":"success",
             "error":None,
-            "data":{"comments_replies":commentsSerializer.data},
-            "metadata" : {"comments_count":movie.commentsNumber}
+            "data":{"comments_replies":comments_serializer.data},
+            "metadata" : {"comments_replies_count":movie.comments_replies_count}
         }
 
         return Response(returned_data,status=status.HTTP_200_OK)
-        
-      
 
 
 class LikesView(APIView):

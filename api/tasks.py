@@ -3,7 +3,7 @@ import requests
 from .views import SaveData
 from dotenv import load_dotenv, find_dotenv
 import os
-from .models import Movie, Genre, Directors, PageInfo
+from .models import Movie, Genre, Directors, PageInfo, ContentRating
 from django.core.exceptions import ObjectDoesNotExist
 
 load_dotenv(find_dotenv())
@@ -61,14 +61,18 @@ def extractDataFromOmdbMovieRequest(data,omdbMovie):
     if not omdbMovie : 
         return
     
+    data['director'] = None
+    data['contentRating'] = None
+    data['imdbId']= omdbMovie.get('imdbID', None)
+    data['duration'] = omdbMovie.get("Runtime", 'N/A')
     data['ratings'] = {
         'metacritics': omdbMovie.get("Metascore", 'N/A'),
         'imdb' : omdbMovie.get("imdbRating", 'N/A') 
     }
-    data['contentRate'] = omdbMovie.get("Rated", 'N/A') 
-    data['duration'] = omdbMovie.get("Runtime", 'N/A')
-    data['imdbId']= omdbMovie.get('imdbID', None)
-    data['director'] = None
+    
+    if (omdbMovie.get("Rated","N/A") != "N/A") : 
+        contentRating, created = ContentRating.objects.get_or_create(name = omdbMovie['Rated'])
+        data['contentRating'] = contentRating
 
     if (omdbMovie.get("Director", 'N/A')!= "N/A") : 
         director,created =  Directors.objects.get_or_create(name = omdbMovie['Director'])
@@ -78,7 +82,6 @@ def getTrailer(TMDB_API_KEY, movieID):
     URL = f"https://api.themoviedb.org/3/movie/{movieID}/videos"
     response = requests.get(URL, headers=getHeaders(TMDB_API_KEY)).json()
 
-    print(response)
     if 'results' in response and len(response['results']) > 0: 
         return response['results'][0]
     return {'key':None} 
