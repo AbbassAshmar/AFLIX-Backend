@@ -13,8 +13,8 @@ class MoviesSerializer(serializers.ModelSerializer):
         data = super().to_representation(obj)
 
         base_url = "http://image.tmdb.org/t/p/"
-        poster_size = "w342"
-        image_size= "w300"
+        poster_size = "w342" # w92,w154,w185,w342,w500,w780,original
+        image_size= "w1280" # w780, w1280 , w300 , original
 
         if not data['image']  :
             data['image'] = "https://imdb-api.com/images/128x176/nopicture.jpg"
@@ -22,14 +22,14 @@ class MoviesSerializer(serializers.ModelSerializer):
         if not data['poster'] :
             data['poster'] = "https://imdb-api.com/images/128x176/nopicture.jpg"
 
-        if data['image'].split("/")[-1] != "nopicture.jpg" : 
+        if data['image'] and data['image'].split("/")[-1] != "nopicture.jpg" : 
             data['image'] = base_url + image_size + "/" + data['image']
 
         if data['poster'].split("/")[-1] != "nopicture.jpg" : 
             data['poster'] =  base_url + poster_size + "/" + data['poster']
 
         if data['trailer'] :
-            data['trailer'] = f"https://www.youtube.com/watch?v={data['trailer']}"
+            data['trailer'] = f"https://www.youtube.com/embed/{data['trailer']}"
 
         data["genre"]= [Genre.objects.get(pk=id).name for id in data['genre']]
         data['director'] = DirectorsSerializer(Directors.objects.filter(pk=data['director']).first()).data

@@ -48,7 +48,7 @@ services :  # specify the different docker images to compose
 
   celery :
     build : . #same build as django 
-    command : celery -A backend worker --beat -l INFO
+    command : celery -A backend worker --beat --config=celeryconfig --loglevel=DEBUG
     volumes : 
       - .:/usr/src/app/backend
     depends_on:
@@ -56,7 +56,7 @@ services :  # specify the different docker images to compose
       
   celery_beat : 
     build : .
-    command : celery -A backend beat
+    command : celery -A backend beat -s ./celery_beat
     volumes : 
       - .:/usr/src/app/backend
     depends_on:

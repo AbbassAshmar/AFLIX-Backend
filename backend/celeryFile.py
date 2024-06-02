@@ -3,32 +3,36 @@ from celery import Celery
 from celery.schedules import crontab
 
 
+# set env var DJANGO_SETTINGS_MODULE=backend.settings for django to find settings
+# ensure that the Django settings are loaded into the environment as soon as the Celery worker starts
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
+
+# create celery instance
 app = Celery('backend')
 
-#the configuration of celery is in "settings"
-#only the keys that start with CELERY_ and all CAP belong to celery conf.
-app.config_from_object('django.conf:settings', namespace="CELERY") 
 
-#autodiscover files that are named tasks
-app.autodiscover_tasks()
+#the configuration of celery is in "celeryconfig.py"
+app.config_from_object('backend.celeryconfig')
+
+#Celery will look for a tasks.py file in each of the applications listed in the INSTALLED_APPS setting of Django 
+app.autodiscover_tasks(['api.tasks'])
 
 # UTC time zone by default
 app.conf.beat_schedule = {
     'InTheaters task': {
         'task': 'api.tasks.InTheaters',
-        'schedule':crontab(hour='5', minute='0',day_of_week='mon,sat'),
+        'schedule':crontab(hour='3', minute='23',day_of_week='mon,sat'),
     },
     'MostPopularMovies task':{
         'task': 'api.tasks.MostPopularMovies',
-        'schedule':crontab(hour='5', minute='0',day_of_week='sun,thu'),
+        'schedule':crontab(hour='6', minute='11',day_of_week='sun,thu,sun'),
     },
     'ComingSoon task':{
         'task': 'api.tasks.ComingSoon',
-        'schedule':crontab(hour='8', minute='0',day_of_week='fri,tue'),
+        'schedule':crontab(hour='2', minute='27',day_of_week='fri,tue,sat'),
     },
     'TopImdb task':{
         'task': 'api.tasks.TopImdb',
-        'schedule':crontab(hour='5', minute='0',day_of_week='wed'),
+        'schedule':crontab(hour='6', minute='22',day_of_week='wed,sun'),
     }
 }

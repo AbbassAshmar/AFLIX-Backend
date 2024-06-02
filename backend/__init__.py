@@ -1,3 +1,3 @@
-from .celeryFile import app 
+from .celeryFile import app as CRM_CELERY_APP
 
-__all__ = ('app',)
+__all__ = ["CRM_CELERY_APP"]

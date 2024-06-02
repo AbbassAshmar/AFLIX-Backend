@@ -1,6 +1,5 @@
 from backend.celeryFile import app
 import requests
-from .views import SaveData
 from dotenv import load_dotenv, find_dotenv
 import os
 from .models import Movie, Genre, Directors, PageInfo, ContentRating
@@ -110,7 +109,7 @@ def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
         return False
     
     for item in tmdb_movies_list['results']:
-        if (not item.get('title',True) or Movie.objects.filter(title=item['title']).exists()) :
+        if not item.get('title',True) or Movie.objects.filter(title=item['title']).exists() :
             continue
 
         data={"thumbnail":None, 'trailer':getTrailer(TMDB_API_KEY, item['id']).get('key',None)}
@@ -119,8 +118,11 @@ def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
         extractDataFromTmdbMovieRequest(data,item)
         extractDataFromOmdbMovieRequest(data, omdbResponse)
 
-        genres = data.pop('genre', None)
-        movie = Movie.objects.create(**data)
+        try :
+            genres = data.pop('genre', None)
+            movie = Movie.objects.create(**data)
+        except :
+            continue
 
         if genres:
             genre_objects = Genre.objects.filter(id__in=genres)

@@ -33,7 +33,7 @@ class Movie(models.Model) :
     duration = models.CharField(max_length=225)
     trailer = models.URLField(default=None, null=True)
     poster = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg",null=True)
-    image = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
+    image = models.URLField(default=None, null=True)
     thumbnail = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
     imdbId = models.CharField(max_length=300,null=True,blank=True,unique=True)
     

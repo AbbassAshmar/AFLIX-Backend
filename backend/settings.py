@@ -34,7 +34,6 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'oauth2_provider',
     'django_celery_beat',
-    
 ]
 
 MIDDLEWARE = [
@@ -179,7 +178,3 @@ ALLOWED_HOSTS = ['*']
 # Oauth2
 LOGIN_URL='/admin/login/'
 
-
-
-# Celery Configuration, using redis database 0 
-CELERY_BROKER_URL = "redis://redis:6379/1"
