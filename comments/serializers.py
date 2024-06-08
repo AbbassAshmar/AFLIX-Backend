@@ -23,8 +23,8 @@ class CommentSerializer(serializers.ModelSerializer):
         return data
 
 class ReplySerializer(serializers.ModelSerializer):
-    likes = serializers.SerializerMethodField('get_likes')
-    dislikes = serializers.SerializerMethodField('get_dislikes')
+    likes = serializers.SerializerMethodField()
+    dislikes = serializers.SerializerMethodField()
 
     class Meta:
         model = Reply
@@ -35,13 +35,14 @@ class ReplySerializer(serializers.ModelSerializer):
 
     def get_dislikes(self, obj):
         return ReplyLikeDislike.objects.filter(reply=obj, interaction_type=2).count()
-
+    
     def to_representation(self,instance):
         data = super().to_representation(instance)
         data["user"] = UserSerializer(instance.user).data
 
         if data["replying_to"] : 
             data['replying_to'] = {
+                'id' : instance.replying_to.id,
                 "text" : instance.replying_to.text,
                 "movie" : instance.replying_to.movie.id,
                 "user" : UserSerializer(instance.replying_to.user).data,
@@ -52,6 +53,7 @@ class ReplySerializer(serializers.ModelSerializer):
             }
         else : 
             data["replying_to"] = {
+                'id' : instance.parent_comment.id,
                 "text" : instance.parent_comment.text,
                 "movie" : instance.parent_comment.movie.id,
                 "user" : UserSerializer(instance.parent_comment.user).data,

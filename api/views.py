@@ -36,27 +36,6 @@ from rest_framework.exceptions import NotFound
 #     'current_page'=>$page,
 #     'limit'=>$limit, 
 
-
-        
-def get_query_set_with_limit(query_set,page, limit): 
-    if not page: 
-        page = 1 
-
-    if limit :
-        try: 
-            limit = int(limit)
-            page = int(page)
-        except ValueError:
-            return None
-        
-        if page <=0 or page <= 0: 
-            return query_set
-
-        return query_set[(page-1) * limit :(page-1) * limit + limit]
-    
-    return query_set
-
-    
 def get_todays_date_iso_format():
     return date.today().isoformat()
 
@@ -80,32 +59,10 @@ def filter_latest_movies(query_set=None):
         exclude(poster__iendswith="/nopicture.jpg")
     )
 
-# filters trending movies if rating is a string 
-def filter_trending_movies_manually():
-    # get a list of dictionaries({ratings__imdb:imdb_rating,pk:pk}) of movies released recently
-    movies = filter_movies_by_date_ratings_poster()
-    movies = movies.values("ratings__imdb","pk")
-    for movie in movies :
-        # convert the imdb rating to a float (ratings is a json fied initially)
-        try :
-            movie["ratings__imdb"] = float(movie["ratings__imdb"])
-        except:
-            movie['ratings__imdb'] = 0
-    # make a list of all the movies pk's from the movies dictionary where ratings__imdb >= 7 
-    movies_filtered_pks = [movie["pk"] for movie in movies if movie["ratings__imdb"] >= 7]
-    # get all the movies by the obtained pks
-    return Movie.objects.filter(pk__in = movies_filtered_pks)
-
-def filter_movies_by_date_ratings_poster():
-    exclude = Q(Q(poster__iendswith="/nopicture.jpg") | Q(ratings__imdb = "N/A"))
-    movies = Movie.objects.filter(released__lt=get_todays_date_iso_format())
-    movies = movies.exclude(exclude)
-    return movies 
 
 # filters trending movies if rating is a float  
 def filter_trending_movies():
     movies = filter_movies_by_date_ratings_poster()
-    movies = movies.filter(ratings__imdb__gte = 7)
     return movies
 
 def order_movies_by_imdb():
@@ -163,7 +120,7 @@ class TopImdbMoviesView(generics.ListAPIView):
         paginator = self.pagination_class()
         paginated_movies = paginator.paginate_queryset_with_details(movies, request)
         
-        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True)
+        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True,context={"request":request})
 
         data = {"movies":moviesSerializer.data}
         metadata = paginated_movies['details']
@@ -181,7 +138,7 @@ class TrendingMoviesView(generics.ListAPIView):
 
             paginator = self.pagination_class()
             paginated_movies = paginator.paginate_queryset_with_details(movies, request)
-            moviesSerializer = self.serializer_class(paginated_movies['result'],many=True)
+            moviesSerializer = self.serializer_class(paginated_movies['result'],many=True,context={"request":request})
             
             data = {"movies":moviesSerializer.data}
             metadata = paginated_movies['details']
@@ -193,10 +150,10 @@ class TrendingMoviesView(generics.ListAPIView):
 class LatestMoviesView(generics.ListAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
-
+   
     def get(self,request):
         movies = filter_latest_movies()
-
+        
         paginator = self.pagination_class()
         paginated_movies = paginator.paginate_queryset_with_details(movies, request)
         moviesSerializer = self.serializer_class(paginated_movies['result'],many=True)
@@ -217,7 +174,7 @@ class UpcomingMoviesView(APIView):
 
         paginator = self.pagination_class()
         paginated_movies = paginator.paginate_queryset_with_details(movies, request)
-        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True)
+        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True,context={"request":request})
         
         data = {"movies":moviesSerializer.data}
         metadata = paginated_movies['details']
@@ -234,14 +191,14 @@ class SimilarMoviesView(APIView):
         movie = get_object_or_404(Movie, id, "Movie does not exist.")
 
         director = movie.director
-        genres = movie.genre.all()
+        genres = movie.genres.all()
 
         today = date.today().isoformat()
-        similar_movies = Movie.objects.filter(Q(Q(genre__in = genres) | Q(director = director))&Q(released__lt =today)).exclude(pk = movie.pk).distinct()
+        similar_movies = Movie.objects.filter(Q(Q(genres__in = genres) | Q(director = director))&Q(released__lt =today)).exclude(pk = movie.pk).distinct()
         
         paginator = self.pagination_class()
         paginated_movies = paginator.paginate_queryset_with_details(similar_movies, request)
-        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True)
+        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True,context={"request":request})
         
         data = {"movies":moviesSerializer.data}
         metadata = paginated_movies['details']
@@ -313,16 +270,18 @@ def filter_movie_query_set(query_set, query_params):
         rated = query_params.get('rated',None)
         released = query_params.get('released',None)
 
+        print(genres)
         query = Q()
         if title :
             query.add(Q(title__icontains = title[0]), Q.AND)
 
         if genres and "All" not in genres :
             try :
-                genre= [Genre.objects.get(name=g) for g in genres]
+                genre= [Genre.objects.get(name__iexact=g) for g in genres]
             except ObjectDoesNotExist:
                 return Movie.objects.none()
-            query.add(Q(genre__in = genre), Q.AND)
+
+            query.add(Q(genres__in = genre), Q.AND)
 
         if rated and "All" not in rated :
             query.add(Q(contentRate__iexact = rated[0]) , Q.AND)
@@ -345,7 +304,12 @@ def filter_movie_query_set(query_set, query_params):
 class MoviesRetrieveApiView(generics.RetrieveAPIView):
     queryset = Movie.objects.all()
     serializer_class = MoviesSerializer
-    lookup_field = 'pk'
+    lookup_field = 'pk' 
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context      
 
 class GenreListApiView(generics.ListAPIView):
     queryset = Genre.objects.all()

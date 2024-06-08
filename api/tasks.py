@@ -54,7 +54,7 @@ def extractDataFromTmdbMovieRequest(data,tmdbMovie):
     data['image'] = tmdbMovie['backdrop_path']
     data['plot'] = tmdbMovie['overview']
     data['released'] = tmdbMovie['release_date']
-    data['genre'] = tmdbMovie['genre_ids']
+    data['genres'] = tmdbMovie['genre_ids']
     
 def extractDataFromOmdbMovieRequest(data,omdbMovie):
     if not omdbMovie : 
@@ -126,7 +126,7 @@ def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
 
         if genres:
             genre_objects = Genre.objects.filter(id__in=genres)
-            movie.genre.set(genre_objects)
+            movie.genres.set(genre_objects)
 
     incrementPage(type)
     return True

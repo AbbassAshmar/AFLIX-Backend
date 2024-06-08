@@ -2,34 +2,6 @@ from django.urls import path,include
 from rest_framework.routers import SimpleRouter, DynamicRoute, Route
 from .views import *
 
-# class customRouter(SimpleRouter):
-#     routes= [
-#         Route(
-#             url=r'^{prefix}$',
-#             mapping = {'post':'create'},
-#             name= '{basename}-create',
-#             detail = False,
-#             initkwargs={}
-#         ),
-#         Route(
-#             url=r'^{prefix}/(?P<id>[^/]+)/(?P<movie_id>[^/]+)$',
-#             mapping ={'get':'retrieve'},
-#             name='{basename}-detail',
-#             detail=True,
-#             initkwargs={}
-#         ),
-#         Route(
-#             url=r'^{prefix}/(?P<pk>[^/]+)',
-#             mapping={'get':'list'},
-#             name='{basename}-list',
-#             detail=False,
-#             initkwargs={}
-#         )
-#     ]
-
-# router = customRouter()
-# router.register('movies/favorites',FavouritesViewSet,basename="fav")
-
 urlpatterns =[
     path("users/user/favorites/", FavoritesAPIView.as_view(), name="favorites"),
     path("movies/trending/", TrendingMoviesView.as_view(), name="movie-trending"),

@@ -3,10 +3,38 @@ from .models import *
 from datetime import datetime, date
 from django.core.exceptions import ValidationError
 
+class DirectorsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Directors
+        fields ="__all__"
+
+class GenresSerializer(serializers.ModelSerializer):
+    class Meta:
+        model= Genre
+        fields ="__all__"
+
 class MoviesSerializer(serializers.ModelSerializer):
+    genres = GenresSerializer(many=True, read_only=True)
+    director = DirectorsSerializer()
+    is_favorite = serializers.SerializerMethodField()
+
     class Meta:
         model = Movie
         fields = "__all__"
+
+    def get_is_favorite(self, obj):
+            user = None
+            request = self.context.get("request")
+            print(self.context)
+            return True
+            if request and hasattr(request, "user"):
+                user = request.user
+
+            print(obj.title, user.is_authenticated, user.favorites.filter(movie=obj).exists())
+            if user and user.is_authenticated :
+                return user.favorites.filter(movie=obj).exists()
+            
+            return False
 
     def to_representation(self, obj):
         # transforms internal representation (model instance) to external representation like dictionaty.
@@ -31,9 +59,6 @@ class MoviesSerializer(serializers.ModelSerializer):
         if data['trailer'] :
             data['trailer'] = f"https://www.youtube.com/embed/{data['trailer']}"
 
-        data["genre"]= [Genre.objects.get(pk=id).name for id in data['genre']]
-        data['director'] = DirectorsSerializer(Directors.objects.filter(pk=data['director']).first()).data
-
         return data
     
     def to_internal_value(self, data): #executed during is_valid(), transforms any format (ex.json) to python respresentation (ex.dic).
@@ -49,15 +74,6 @@ class MoviesSerializer(serializers.ModelSerializer):
             data['released'] = None
         return super().to_internal_value(data)
   
-class DirectorsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Directors
-        fields ="__all__"
-
-class GenresSerializer(serializers.ModelSerializer):
-    class Meta:
-        model= Genre
-        fields ="__all__"
 
 class ContentRatingSerializer(serializers.ModelSerializer):
     class Meta:

@@ -26,7 +26,7 @@ class Movie(models.Model) :
     title = models.CharField(max_length=700, blank=False,null=False,unique=True)
     ratings = models.JSONField()
     released = models.DateField(max_length=256,null=True)
-    genre = models.ManyToManyField(Genre)
+    genres = models.ManyToManyField(Genre)
     plot = models.TextField()
     contentRating = models.ForeignKey(ContentRating,null=True, on_delete=models.SET_NULL,related_name='movies')
     director = models.ForeignKey(Directors, null=True,on_delete=models.SET_NULL,related_name='movies')

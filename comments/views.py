@@ -18,9 +18,8 @@ from django.utils import timezone
 class CommentApiView(APIView):
     permission_classes=[IsAuthenticated]
 
-
     def post(self, request):
-        user = Token.objects.get(key=request.headers["Authorization"].split(' ')[1]).user
+        user = request.user
         movie = get_object_or_404(Movie,request.data['movie'],"movie doesn't exist")
 
         data = {
@@ -29,16 +28,18 @@ class CommentApiView(APIView):
             'user':user.pk,
             'created_at':timezone.now()
         }
+
         comment_serializer = CommentSerializer(data=data)
         if comment_serializer.is_valid():
-            comment_serializer.save()
-            return_data = {
-                "data":{"action" : "created"},
+            new_comment = comment_serializer.save()
+            payload = {
+                "data":{"action" : "created",'comment' : CommentReplySerializer(new_comment).data},
                 "error":None,
-                "metadata":{"comments_count":movie.comments_count},
+                "metadata":{"comments_replies_count":movie.comments_replies_count},
                 "status":'success'
             }
-            return Response(return_data,status=status.HTTP_201_CREATED)
+
+            return Response(payload,status=status.HTTP_201_CREATED)
         
         return Response({"error":"couldn't add comment"},status=status.HTTP_400_BAD_REQUEST)
     
@@ -68,14 +69,14 @@ class CommentApiView(APIView):
             return Response({"error":"wrong user."}, status=status.HTTP_403_FORBIDDEN)
         
         comment.delete()
-        return_data = {
+        payload = {
             "data":{"action" : "deleted"},
             "error":None,
-            "metadata":{"comments_count":movie.comments_count},
+            "metadata":{"comments_replies_count":movie.comments_replies_count},
             "status":'success'
         }
 
-        return Response(return_data,status=status.HTTP_200_OK)
+        return Response(payload,status=status.HTTP_200_OK)
        
 
 class ReplyApiView(APIView):
@@ -95,20 +96,20 @@ class ReplyApiView(APIView):
                 'parent_comment': parent_comment.pk,
                 'text':request.data['text'],
                 'movie':movie.pk,
-                'replying_to':replying_to.pk,
+                'replying_to':getattr(replying_to, 'pk' , None),
                 'created_at':timezone.now()
             }
 
             reply_serializer = ReplySerializer(data=data)
             if reply_serializer.is_valid():
-                reply_serializer.save()
-                return_data = {
-                    "data":{"action" : "created"},
+                new_reply = reply_serializer.save()
+                payload = {
+                    "data":{"action" : "created","reply" :ReplySerializer(new_reply).data},
                     "error":None,
-                    "metadata":{"comments_count":movie.comments_count},
+                    "metadata":{"comments_replies_count":movie.comments_replies_count},
                     "status":'success'
                 }
-                return Response(return_data,status=status.HTTP_201_CREATED)
+                return Response(payload,status=status.HTTP_201_CREATED)
             
             return Response({"error":"couldn't add reply"},status=status.HTTP_400_BAD_REQUEST)
     
@@ -136,14 +137,14 @@ class ReplyApiView(APIView):
             return Response({"error":"wrong user."}, status=status.HTTP_403_FORBIDDEN)
         
         reply.delete()
-        return_data = {
+        payload = {
             "data":{"action" : "deleted"},
             "error":None,
-            "metadata":{"comments_count":movie.comments_count},
+            "metadata":{"comments_replies_count":movie.comments_replies_count},
             "status":'success'
         }
 
-        return Response(return_data,status=status.HTTP_200_OK)
+        return Response(payload,status=status.HTTP_200_OK)
 
 
 class CommentReplyApiView(APIView):
