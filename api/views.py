@@ -156,7 +156,7 @@ class LatestMoviesView(generics.ListAPIView):
         
         paginator = self.pagination_class()
         paginated_movies = paginator.paginate_queryset_with_details(movies, request)
-        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True)
+        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True,context={'request' : request})
         
         data = {"movies":moviesSerializer.data}
         metadata = paginated_movies['details']

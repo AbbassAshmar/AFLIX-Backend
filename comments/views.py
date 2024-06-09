@@ -13,7 +13,7 @@ from .models import Comment, Reply, CommentLikeDislike, ReplyLikeDislike
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets,status
 from django.utils import timezone
-
+from helpers.response import successResponse, failedResponse
 
 class CommentApiView(APIView):
     permission_classes=[IsAuthenticated]
@@ -32,33 +32,43 @@ class CommentApiView(APIView):
         comment_serializer = CommentSerializer(data=data)
         if comment_serializer.is_valid():
             new_comment = comment_serializer.save()
-            payload = {
-                "data":{"action" : "created",'comment' : CommentReplySerializer(new_comment).data},
-                "error":None,
-                "metadata":{"comments_replies_count":movie.comments_replies_count},
-                "status":'success'
-            }
+
+            data = {"action" : "created",'comment' : CommentReplySerializer(new_comment).data}
+            metadata = {"comments_replies_count":movie.comments_replies_count}
+            payload = successResponse(data, metadata)
 
             return Response(payload,status=status.HTTP_201_CREATED)
         
         return Response({"error":"couldn't add comment"},status=status.HTTP_400_BAD_REQUEST)
     
-    def put(self ,request, pk=None):
-        if 'text' not in request.data:
-            raise serializers.ValidationError({"text": "no text provided"})
-        try: 
-            comment = Comment.objects.get(pk = pk)
-        except ObjectDoesNotExist :
-            return Response({"error":"no comment provided"},status=status.HTTP_404_NOT_FOUND)
-        # check whether the user commented is the same user editing
-        if not comment.user == User.objects.get(pk = Token.objects.get(pk = request.headers["Authorization"].split(" ")[1]).user_id) :
-            return Response({"error": "trying to edit a reply that doesn't belong to the user"},status=status.HTTP_403_FORBIDDEN)
-        comment_serializer = CommentSerializer(comment,data=request.data,partial=True)
-        if comment_serializer.is_valid(raise_exception=True):
+    def patch(self, request, pk=None) : 
+        text = (request.data['text'] or "").strip()
+
+        if len(text) <= 0 : 
+            error = {"message":"Text was not provided.", "code" : 400}
+            payload = failedResponse(error, None)
+            return Response(payload,status=status.HTTP_400_BAD_REQUEST)
+        
+        comment = get_object_or_404(Comment, pk, "Comment doesn't exist.")
+
+        user_requesting = request.user
+        user_of_comment = comment.user
+
+        if not user_requesting == user_of_comment :
+            error = {"message":"You are not allowed to patch other users' comments", "code" : 403}
+            payload = failedResponse(error, None)
+            return Response(payload,status=status.HTTP_403_FORBIDDEN)
+        
+        comment_serializer = CommentSerializer(comment, data={'text' : text}, partial=True)
+        if comment_serializer.is_valid() :
             comment_serializer.save()
-            return Response(status=status.HTTP_200_OK)
-        else:
-            return Response({'error': comment_serializer.errors},status=status.HTTP_400_BAD_REQUEST)
+
+            payload = successResponse({'comment' : {'text' : text}},None)
+            return Response(payload, status.HTTP_200_OK)
+
+        failedResponse({"message" : "Invalid data." , "details" : comment_serializer.errors, "code" : 400},None)
+        return Response(payload, status.HTTP_200_OK)
+    
         
     def delete(self, request,pk=None):
         user = Token.objects.get(key=request.headers["Authorization"].split(' ')[1]).user
@@ -90,7 +100,7 @@ class ReplyApiView(APIView):
 
             if parent_comment.id !=  request.data["replying_to"]:
                 replying_to = get_object_or_404(Reply, request.data['replying_to'], "comment you are replying to does not exist.")
-         
+
             data= {
                 'user':user.pk,
                 'parent_comment': parent_comment.pk,
@@ -103,30 +113,44 @@ class ReplyApiView(APIView):
             reply_serializer = ReplySerializer(data=data)
             if reply_serializer.is_valid():
                 new_reply = reply_serializer.save()
-                payload = {
-                    "data":{"action" : "created","reply" :ReplySerializer(new_reply).data},
-                    "error":None,
-                    "metadata":{"comments_replies_count":movie.comments_replies_count},
-                    "status":'success'
-                }
+                
+                data ={"action" : "created","reply" :ReplySerializer(new_reply).data}
+                metadata ={"comments_replies_count":movie.comments_replies_count}
+                payload = successResponse(data, metadata)
+
                 return Response(payload,status=status.HTTP_201_CREATED)
             
-            return Response({"error":"couldn't add reply"},status=status.HTTP_400_BAD_REQUEST)
+            error = {"message":"couldn't add reply", "code" : 400}
+            payload = failedResponse(error, None)
+            return Response(payload,status=status.HTTP_400_BAD_REQUEST)
     
-    def put(self, request, pk=None):
-        text = request.data['text']
-        reply = get_object_or_404(Reply, pk, "reply doesn't exist")
-        if not text or len(text) < 1 :
-            return Response({"error":"no text provided"},status=status.HTTP_400_BAD_REQUEST)
-        user_replying_id = Token.objects.get(key=request.headers['Authorization'].split(" ")[1]).user_id
-        user_replying = get_object_or_404(User,user_replying_id, "user doens't exist")
-        if not user_replying == reply.user :
-            return Response({'error':"forbidden"},status=status.HTTP_403_FORBIDDEN)
-        reply_serializer = ReplySerializer(reply, data={'text' : text},partial =True)
-        if reply_serializer.is_valid(raise_exception=True) :
+    def patch(self, request, pk=None) : 
+        text = (request.data['text'] or "").strip()
+
+        if len(text) <= 0 : 
+            error = {"message":"Text was not provided.", "code" : 400}
+            payload = failedResponse(error, None)
+            return Response(payload,status=status.HTTP_400_BAD_REQUEST)
+        
+        reply = get_object_or_404(Reply, pk, "Reply doesn't exist.")
+
+        user_requesting = request.user
+        user_of_reply = reply.user
+
+        if not user_requesting == user_of_reply :
+            error = {"message":"You are not allowed to patch other users' replies", "code" : 403}
+            payload = failedResponse(error, None)
+            return Response(payload,status=status.HTTP_403_FORBIDDEN)
+        
+        reply_serializer = ReplySerializer(reply, data={'text' : text}, partial=True)
+        if reply_serializer.is_valid() :
             reply_serializer.save()
-            return Response({"text":text},status=status.HTTP_200_OK)
-        return Response({"error":"reply edit failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+            payload = successResponse({'reply' : {'text' : text}},None)
+            return Response(payload, status.HTTP_200_OK)
+
+        failedResponse({"message" : "Invalid data." , "details" : reply_serializer.errors, "code" : 400},None)
+        return Response(payload, status.HTTP_200_OK)
     
     def delete(self, request , pk=None) :
         user = Token.objects.get(key=request.headers["Authorization"].split(' ')[1]).user
@@ -151,81 +175,120 @@ class CommentReplyApiView(APIView):
     def get(self,request, movie_id=None):
         movie = get_object_or_404(Movie, movie_id,"movie doesn't exist.")
         comments = movie.comments.order_by("-created_at")
-        comments_serializer = CommentReplySerializer(comments, many=True)
-        returned_data = { 
-            "status":"success",
-            "error":None,
-            "data":{"comments_replies":comments_serializer.data},
-            "metadata" : {"comments_replies_count":movie.comments_replies_count}
+
+        comments_serializer = CommentReplySerializer(comments, many=True, context={"request" : request})
+        data = {"comments_replies":comments_serializer.data}
+        metadata = {"comments_replies_count":movie.comments_replies_count}
+        
+        payload = successResponse(data,metadata)
+        return Response(payload,status=status.HTTP_200_OK)
+
+
+class CommentLikeApiView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self,request, pk):
+        user = request.user
+        comment = get_object_or_404(Comment, pk , "Comment not found.")
+        commentLikeDislike, created = CommentLikeDislike.objects.get_or_create(user= user,comment= comment)
+      
+        if not created and commentLikeDislike.interaction_type == 1 : #remove the like 1->0
+            commentLikeDislike.interaction_type = 0
+            commentLikeDislike.save(update_fields=['interaction_type'])
+            data = {'action' : 'like removed'}
+        
+        else : 
+            commentLikeDislike.interaction_type = 1
+            commentLikeDislike.save(update_fields=['interaction_type'])
+            data = {'action' : 'like added'}
+        
+        metadata = {
+            'likes_count' : comment.likes_count ,
+            'dislikes_count' :  comment.dislikes_count
         }
 
-        return Response(returned_data,status=status.HTTP_200_OK)
+        payload = successResponse(data,metadata)
+        return Response(payload, status.HTTP_200_OK)
 
-
-class LikesView(APIView):
-    # permission_classes = [IsAuthenticated]
-    def post(self,request):
-        user = Token.objects.get(key= request.headers["Authorization"].split(" ")[1]).user
-        comment = Comment.objects.get(id=request.data["id"]) if not request.data["reply"] else Reply.objects.get(id = request.data["id"])
-        UserCommentInstance ,created= CommentLikeDislike.objects.get_or_create(user= user,comment=comment,defaults={
-        "liked":True,"disliked":False
-        }) if not request.data["reply"] else ReplyLikeDislike.objects.get_or_create(user= user,reply=comment,defaults={
-        "liked":True,"disliked":False
-        })
-        if created :
-            comment.likes = F("likes") +1
-            comment.save(update_fields=["likes"])
-            comment.refresh_from_db()
-
-        else :
-            if UserCommentInstance.disliked == True :
-                UserCommentInstance.disliked = False
-                UserCommentInstance.liked =  True
-                UserCommentInstance.save(update_fields=["disliked","liked"])
-                comment.dislikes = F("dislikes") - 1
-                comment.likes = F("likes") + 1
-                comment.save(update_fields=["dislikes","likes"])
-                comment.refresh_from_db()
-            else :
-                UserCommentInstance.liked = True if not UserCommentInstance.liked else False
-                UserCommentInstance.save(update_fields=["liked",])
-                comment.likes = F("likes") + 1 if UserCommentInstance.liked else F("likes")-1 
-                comment.save(update_fields=["likes"])
-                comment.refresh_from_db()
-
-        return Response({"likes":str(comment.likes),"dislikes":str(comment.dislikes)}, status=status.HTTP_200_OK)
-
-class DislikesView(APIView):
+class CommentDislikeApiView(APIView):
     permission_classes = [IsAuthenticated]
-    def post(self,request):
-        user = Token.objects.get(key= request.headers["Authorization"].split(" ")[1]).user
-        comment = Comment.objects.get(id=request.data["id"]) if not request.data["reply"] else Reply.objects.get(id = request.data["id"])
-        UserCommentInstance ,created= CommentLikeDislike.objects.get_or_create(user= user,comment=comment,defaults={
-        "liked":False,"disliked":True
-        }) if not request.data["reply"] else ReplyLikeDislike.objects.get_or_create(user= user,reply=comment,defaults={
-        "liked":False,"disliked":True
-        })
-        if created :
-            comment.dislikes = F("dislikes") +1
-            comment.save(update_fields=["dislikes"]) #update the instance , but it still contain outdated data
-            comment.refresh_from_db() #refresh the instance from the database to get the updated latest data
 
-        else :
-            if UserCommentInstance.liked == True :
-                UserCommentInstance.liked = False
-                UserCommentInstance.disliked =  True
-                UserCommentInstance.save(update_fields=["disliked","liked"])
-                comment.likes = F("likes") - 1
-                comment.dislikes = F("dislikes") + 1
-                comment.save(update_fields=["dislikes","likes"])
-                comment.refresh_from_db()
-            else :
-                UserCommentInstance.disliked = True if not UserCommentInstance.disliked else False
-                UserCommentInstance.save(update_fields=["disliked",])
-                comment.dislikes = F("dislikes") + 1 if UserCommentInstance.disliked else F("dislikes")-1 
-                comment.save(update_fields=["dislikes"])
-                comment.refresh_from_db()
-        return Response({"likes":str(comment.likes),"dislikes":str(comment.dislikes)}, status=status.HTTP_200_OK)
+    def post(self,request, pk):
+        user = request.user
+        comment = get_object_or_404(Comment, pk , "Comment not found.")
+        commentLikeDislike, created = CommentLikeDislike.objects.get_or_create(user= user,comment= comment)
+      
+        if not created and commentLikeDislike.interaction_type == 2 : #remove the like 1->0
+            commentLikeDislike.interaction_type = 0
+            commentLikeDislike.save(update_fields=['interaction_type'])
+            data = {'action' : 'like removed'}
+        
+        else : 
+            commentLikeDislike.interaction_type = 2
+            commentLikeDislike.save(update_fields=['interaction_type'])
+            data = {'action' : 'like added'}
+        
+        metadata = {
+            'likes_count' : comment.likes_count ,
+            'dislikes_count' :  comment.dislikes_count
+        }
+
+        payload = successResponse(data,metadata)
+        return Response(payload, status.HTTP_200_OK)
+
+
+class ReplyLikeApiView(APIView) :
+    permission_classes = [IsAuthenticated]
+
+    def post(self,request, pk):
+        user = request.user
+        reply = get_object_or_404(Reply, pk , "Reply not found.")
+        replyLikeDislike, created = ReplyLikeDislike.objects.get_or_create(user= user,reply= reply)
+      
+        if not created and replyLikeDislike.interaction_type == 1 : 
+            replyLikeDislike.interaction_type = 0
+            replyLikeDislike.save(update_fields=['interaction_type'])
+            data = {'action' : 'like removed'}
+        
+        else : 
+            replyLikeDislike.interaction_type = 1
+            replyLikeDislike.save(update_fields=['interaction_type'])
+            data = {'action' : 'like added'}
+        
+        metadata = {
+            'likes_count' : reply.likes_count ,
+            'dislikes_count' :  reply.dislikes_count
+        }
+
+        payload = successResponse(data,metadata)
+        return Response(payload, status.HTTP_200_OK)
+
+class ReplyDislikeApiView(APIView) :
+    permission_classes = [IsAuthenticated]
+
+    def post(self,request, pk):
+        user = request.user
+        reply = get_object_or_404(Reply, pk , "Reply not found.")
+        replyLikeDislike, created = ReplyLikeDislike.objects.get_or_create(user= user,reply= reply)
+            
+        if not created and replyLikeDislike.interaction_type == 2 : #remove the like 1->0
+            replyLikeDislike.interaction_type = 0
+            replyLikeDislike.save(update_fields=['interaction_type'])
+            data = {'action' : 'like removed'}
+        
+        else : 
+            replyLikeDislike.interaction_type = 2
+            replyLikeDislike.save(update_fields=['interaction_type'])
+            data = {'action' : 'like added'}
+        
+        metadata = {
+            'likes_count' : reply.likes_count ,
+            'dislikes_count' :  reply.dislikes_count
+        }
+
+        payload = successResponse(data,metadata)
+        return Response(payload, status.HTTP_200_OK)
+    
 
 class GetLikesDislikesView(APIView):
     def post(self,request):

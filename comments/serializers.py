@@ -6,6 +6,7 @@ from authentication.serializers import UserSerializer
 class CommentSerializer(serializers.ModelSerializer):
     likes = serializers.SerializerMethodField('get_likes')
     dislikes = serializers.SerializerMethodField('get_dislikes')
+    interaction = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -17,6 +18,19 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_dislikes(self, obj):
         return CommentLikeDislike.objects.filter(comment=obj, interaction_type=2).count()
 
+    def get_interaction(self, obj) :
+        user = None
+        request = self.context.get("request")
+        
+        if request and hasattr(request, "user"):
+            user = request.user
+
+        if user and user.is_authenticated :
+            replyLikeDislike = ReplyLikeDislike.objects.first(user=user, reply=obj).interaction_type
+            if not replyLikeDislike :
+                return 0
+            return replyLikeDislike.interaction_type
+        
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["user"]= UserSerializer(instance.user).data
@@ -25,6 +39,7 @@ class CommentSerializer(serializers.ModelSerializer):
 class ReplySerializer(serializers.ModelSerializer):
     likes = serializers.SerializerMethodField()
     dislikes = serializers.SerializerMethodField()
+    interaction = serializers.SerializerMethodField()
 
     class Meta:
         model = Reply
@@ -35,6 +50,21 @@ class ReplySerializer(serializers.ModelSerializer):
 
     def get_dislikes(self, obj):
         return ReplyLikeDislike.objects.filter(reply=obj, interaction_type=2).count()
+    
+    def get_interaction(self, obj) :
+        user = None
+        request = self.context.get("request")
+        
+        if request and hasattr(request, "user"):
+            user = request.user
+
+        if user and user.is_authenticated :
+            replyLikeDislike = ReplyLikeDislike.objects.first(user=user, reply=obj).interaction_type
+            if not replyLikeDislike :
+                return 0
+            return replyLikeDislike.interaction_type
+        
+        return False
     
     def to_representation(self,instance):
         data = super().to_representation(instance)
@@ -66,12 +96,28 @@ class ReplySerializer(serializers.ModelSerializer):
         return data
 
 class CommentReplySerializer(serializers.ModelSerializer) : 
-    likes = serializers.SerializerMethodField('get_likes')
-    dislikes = serializers.SerializerMethodField('get_dislikes')
+    likes = serializers.SerializerMethodField()
+    dislikes = serializers.SerializerMethodField()
+    interaction = serializers.SerializerMethodField()
 
     class Meta : 
         model = Comment
         fields ="__all__"
+
+    def get_interaction(self, obj) :
+        user = None
+        request = self.context.get("request")
+        
+        if request and hasattr(request, "user"):
+            user = request.user
+
+        if user and user.is_authenticated :
+            replyLikeDislike = ReplyLikeDislike.objects.first(user=user, reply=obj).interaction_type
+            if not replyLikeDislike :
+                return 0
+            return replyLikeDislike.interaction_type
+        
+        return False
 
     def get_likes(self, obj):
         return CommentLikeDislike.objects.filter(comment=obj, interaction_type=1).count()
@@ -82,6 +128,6 @@ class CommentReplySerializer(serializers.ModelSerializer) :
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["user"]= UserSerializer(instance.user).data
-        data["replies"] = ReplySerializer(instance.replies,many=True).data
+        data["replies"] = ReplySerializer(instance.replies,many=True,context=self.context).data
         return data
 

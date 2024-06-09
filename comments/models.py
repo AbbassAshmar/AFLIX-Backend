@@ -17,12 +17,28 @@ class Comment(Base):
     movie = models.ForeignKey("api.Movie",related_name="comments", on_delete=models.CASCADE,null=False)
     likes_dislikes = models.ManyToManyField(User, through="CommentLikeDislike")
 
+    @property
+    def likes_count(self) :
+        return self.likes_dislikes.through.objects.filter(comment = self, interaction_type=1).count()
+
+    @property
+    def dislikes_count(self) :
+        return self.likes_dislikes.through.objects.filter(comment = self, interaction_type=2).count()
+
 class Reply(Base):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="replies",null=False)
     movie = models.ForeignKey("api.Movie",on_delete=models.CASCADE,related_name="replies",null=False)
     parent_comment = models.ForeignKey(Comment, on_delete=models.CASCADE,related_name="replies",null=False)
     replying_to = models.ForeignKey("self",on_delete=models.CASCADE,related_name="replied_to_me",null=True,blank=True)
     likes_dislikes = models.ManyToManyField(User, through="ReplyLikeDislike")
+
+    @property
+    def likes_count(self) :
+        return self.likes_dislikes.through.objects.filter(reply = self, interaction_type=1).count()
+
+    @property
+    def dislikes_count(self) :
+        return self.likes_dislikes.through.objects.filter(reply = self, interaction_type=2).count()
 
 class CommentLikeDislike(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

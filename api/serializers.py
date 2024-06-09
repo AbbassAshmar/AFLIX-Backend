@@ -25,12 +25,10 @@ class MoviesSerializer(serializers.ModelSerializer):
     def get_is_favorite(self, obj):
             user = None
             request = self.context.get("request")
-            print(self.context)
-            return True
+           
             if request and hasattr(request, "user"):
                 user = request.user
 
-            print(obj.title, user.is_authenticated, user.favorites.filter(movie=obj).exists())
             if user and user.is_authenticated :
                 return user.favorites.filter(movie=obj).exists()
             
