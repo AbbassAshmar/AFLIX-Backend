@@ -13,7 +13,9 @@ import random
 import string
 import re
 import requests
-
+from helpers.response import successResponse, failedResponse
+from rest_framework.generics import CreateAPIView
+from rest_framework.exceptions import ValidationError
 
 def remove_tuples_from_list(arr, *args):
     for key in args :
@@ -27,62 +29,58 @@ def contains_letters_and_numbers(string):
 
 def validate_password(password , confirm_password=None):
     if len(password) < 8 :
-        return {"error":"Your password must be at least 8 characters !"}
+        metadata = {"error_fields" : ["password"]}
+        error = {
+            "code" : 400,
+            "message" : "Validation error.",
+            "details" : {
+                "password" : "Your password must be at least 8 characters !"
+            }
+        }
+        
+        return failedResponse(error, metadata)
+    
     if not contains_letters_and_numbers(password):
-        return {"error":"Password must contain numbers and characters !"}
+        metadata = {"error_fields" : ["password"]}
+        error = {
+            "code" : 400,
+            "message" : "Validation error.",
+            "details" : {
+                "password" : "Password must contain numbers and characters !"
+            }
+        }
+        
+        return failedResponse(error, metadata)
+    
     if not password == confirm_password and confirm_password!=None:
-        return {"error":"Passwords do not match !"}
+        metadata = {"error_fields" : ["password","confirm_password"]}
+        error = {
+            "code" : 400,
+            "message" : "Validation error.",
+            "details" : {
+                "confirm_password" : "Passwords do not match !"
+            }
+        }
+        
+        return failedResponse(error, metadata)
+    
     return None
 
 class UserViewSet(viewsets.ViewSet):
-    lookup_field = 'pk' # overrides the default field to look for in retrieve, the default is pk 
+    lookup_field = 'pk'
     serializer_class = UserSerializer
 
-    # apply isAuthenticated permission check to partial_update method only
+    # apply isAuthenticated permission for partial_update only
     def get_permissions(self):
         if self.request.method == "PATCH":
-            # permission list is used by check_permissions() method 
             return [IsAuthenticated()]
-        # return [permission() for permission in permission_classes]
+
         return super().get_permissions()
     
     def list(self, request):
         queryset = User.objects.all()
         serializer = self.serializer_class(queryset, many =True)
         return Response(serializer.data)
-
-    def create(self ,request):
-        new_user = request.data
-
-        if User.objects.filter(email = new_user['email']).exists():
-            return Response({"error":"Email already used"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if User.objects.filter(username = new_user['username']).exists():
-            while {'username':new_user['username']} in User.objects.values('username'):
-                usernamee = new_user['username']+ " #"+str(random.randrange(1000,99999))
-                new_user['username'] =usernamee
-
-        password =  new_user["password"]
-        confirm_pass =new_user["confirmPass"]
-
-        validatePass=validate_password(password,confirm_pass) 
-        if validatePass is not None:
-            return Response(validatePass,status=status.HTTP_400_BAD_REQUEST)
-        
-        user =User.objects.create_user(username = new_user["username"], email=new_user["email"], password = new_user["password"],pfp=None)
-        token = Token.objects.create(user = user)
-
-        response = {
-            "metadata" : None,
-            "success" : True,
-            "error" : None,
-            "data" : {
-                "user" : self.serializer_class(user).data,
-                "token" :  token.key
-            }
-        }
-
-        return Response(response, status=status.HTTP_201_CREATED)
     
     def retrieve(self, request, pk=None):
         try :
@@ -180,60 +178,100 @@ class googleLoginViewSet(viewsets.ViewSet):
         token = Token.objects.get_or_create(user=user)[0]
         return Response({"user" :UserSerializer(user).data, "token" : token.key},status=status.HTTP_302_FOUND)
 
+class RegisterApiView(CreateAPIView):
+    permission_classes= []
+    serializer_class = UserSerializer
 
-class LoginViewSet(viewsets.ViewSet):
-    def create(self , request):
+    def post(self , request):
+        new_user = request.data
+
+        # if User.objects.filter(email = new_user['email']).exists():
+        #     metadata = {"error_fields" : ["email"]}
+        #     error = {
+        #         "code" : 400,
+        #         "message" : "Validation error.",
+        #         "details" : {
+        #             "email" : "Email already used."
+        #         }
+        #     }
+
+        #     payload = failedResponse(error, metadata)
+        #     return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        password = new_user["password"]
+        confirm_password =new_user["confirm_password"]
+
+        # validatePass=validate_password(password,confirm_password) 
+        # if validatePass is not None:
+        #     return Response(validatePass,status=status.HTTP_400_BAD_REQUEST)
+
+        data = {
+            'username' : new_user['username'],
+            'password' : new_user["password"],
+            'email' : new_user['email'],
+            'pfp' : None
+        }
+
+        try :
+            user =User.objects.create_user(username = new_user["username"], email=new_user["email"], password = new_user["password"],pfp=None)
+            token = Token.objects.create(user = user)
+
+        except (ValidationError) : 
+            pass
+
+        data = {
+            "user" : self.get_serializer(user).data,
+            "token" : token.key
+        }
+
+        payload = successResponse(data, None)
+        return Response(payload, status=status.HTTP_201_CREATED)
+        
+class LoginApiView(CreateAPIView):
+    def post(self , request):
         email = request.data["email"]
         password = request.data["password"]
-
-        response = {
-            "metadata" : None,
-            "success" : True,
-            "error" : None,
-            "data" : None, 
-        }
 
         try :
             user = User.objects.get(email = email)
         except ObjectDoesNotExist:
-            response["success"] = False
-            response["metadata"] = {"error_fields" : ["email"]}
-            response["error"] = {
-                "code": 404 , 
+            metadata = {"error_fields" : ["email", "password"]}
+            error = {
+                "code": 400 , 
                 "message":"Validation Error.",
                 "details" : {"password" : "Account with this email does not exist!"}
             }
 
-            return Response(response, status= status.HTTP_404_NOT_FOUND)
+            payload = failedResponse(error, metadata)
+            return Response(payload, status= status.HTTP_400_BAD_REQUEST)
         
         if not check_password(password, user.password) :
-            response["success"] = False
-            response["metadata"] = {"error_fields" : ["email","password"]}
-            response["error"] = {
-                "code": 404 , 
+            metadata = {"error_fields" : ["email", "password"]}
+            error = {
+                "code": 400 , 
                 "message":"Validation Error.",
                 "details" : {"password" : "Wrong Email or Password"}
             }
-            
-            return Response(response, status= status.HTTP_404_NOT_FOUND)
+
+            payload = failedResponse(error, metadata)
+            return Response(payload, status= status.HTTP_400_BAD_REQUEST)
         
-        response = {
-            "metadata" : None,
-            "success" : True,
-            "error" : None,
-            "data" : {
-                "user" : UserSerializer(user).data,
-                'token' : Token.objects.get_or_create(user = user)[0].key
-            }
+        
+        data= {
+            "user" : UserSerializer(user).data,
+            'token' : Token.objects.get_or_create(user = user)[0].key
         }
         
-        return Response(response,status=status.HTTP_200_OK)
+        payload = successResponse(data, None)
+        return Response(payload,status=status.HTTP_200_OK)
 
-class LogoutViewSet(viewsets.ViewSet):
+class LogoutApiView(CreateAPIView):
     permission_classes =[IsAuthenticated]
-    def create(self, request):
+
+    def post(self, request):
         request.user.auth_token.delete()
-        return Response({"error":"user logged out"})
+        data= {"action" : "logged out"}
+        return Response(successResponse(data,None), status.HTTP_200_OK)
 
 class TokenValidate(APIView):
     def get(self, request, *args, **kwargs):

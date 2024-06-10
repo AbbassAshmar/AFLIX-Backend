@@ -15,6 +15,8 @@ from helpers.response import successResponse, failedResponse
 from helpers.get_object_or_404 import get_object_or_404
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import NotFound
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 
 # event = threading.Event() # Create an Event to control the timimg of the thread
 # def setInterval(func,time,name):
@@ -102,7 +104,7 @@ class MovieListApiView(generics.ListAPIView):
         paginator = self.pagination_class()
         paginated_filter_movies = paginator.paginate_queryset_with_details(filtered_movies, request)
 
-        moviesSerializer = MoviesSerializer(paginated_filter_movies['result'],many=True)
+        moviesSerializer = self.serializer_class(paginated_filter_movies['result'],many=True,context={"request":request})
         data = {"movies":moviesSerializer.data}
         metadata = paginated_filter_movies['details']
         
@@ -151,7 +153,7 @@ class LatestMoviesView(generics.ListAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
    
-    def get(self,request):
+    def list(self,request):
         movies = filter_latest_movies()
         
         paginator = self.pagination_class()
@@ -165,11 +167,11 @@ class LatestMoviesView(generics.ListAPIView):
         return Response(response,status=status.HTTP_200_OK)
 
 
-class UpcomingMoviesView(APIView):
+class UpcomingMoviesView(generics.RetrieveAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
 
-    def get(self,request):
+    def retrieve(self,request):
         movies =filter_upcoming_movies()
 
         paginator = self.pagination_class()
@@ -183,11 +185,11 @@ class UpcomingMoviesView(APIView):
         return Response(response,status=status.HTTP_200_OK)
         
 
-class SimilarMoviesView(APIView):
+class SimilarMoviesView(generics.ListAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
 
-    def get(self,request,id=None):
+    def list(self,request,id=None):
         movie = get_object_or_404(Movie, id, "Movie does not exist.")
 
         director = movie.director
@@ -213,7 +215,7 @@ class FavoritesAPIView(generics.ListCreateAPIView):
     permission_classes=[IsAuthenticated]
     serializer_class = MoviesSerializer
         
-    def get(self,request):
+    def list(self,request):
         user = request.user
         params = dict(request.query_params)
 
@@ -301,9 +303,17 @@ def filter_movie_query_set(query_set, query_params):
 
         return filtered_query_set
 
+class IgnoreInvalidToken(TokenAuthentication):
+    def authenticate_credentials(self, key):
+        try:
+            return super().authenticate_credentials(key)
+        except AuthenticationFailed:
+            return None
+        
 class MoviesRetrieveApiView(generics.RetrieveAPIView):
     queryset = Movie.objects.all()
     serializer_class = MoviesSerializer
+    authentication_classes = [IgnoreInvalidToken]
     lookup_field = 'pk' 
 
     def get_serializer_context(self):

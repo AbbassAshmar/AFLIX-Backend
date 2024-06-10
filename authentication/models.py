@@ -12,4 +12,24 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
     
+    # def validate_email(self, email):
+    #     pass
+
+    # def validate_username(self, username) :
+    #     pass
+
+    # def validate_password(self, password) : 
+    #     pass
+
+    # def clean(self):
+    #     self.validate_email(self.email)
+    #     self.validate_username(self.username)
+    #     self.validate_password(self.password)
+
+    # def save(self, *args, **kwargs):
+    #     self.full_clean()
+    #     return super().save(*args, **kwargs)
+
+        
+    
 

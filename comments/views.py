@@ -14,6 +14,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets,status
 from django.utils import timezone
 from helpers.response import successResponse, failedResponse
+from .services import LikeDislikeService
+
 
 class CommentApiView(APIView):
     permission_classes=[IsAuthenticated]
@@ -188,106 +190,51 @@ class CommentLikeApiView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self,request, pk):
-        user = request.user
-        comment = get_object_or_404(Comment, pk , "Comment not found.")
-        commentLikeDislike, created = CommentLikeDislike.objects.get_or_create(user= user,comment= comment)
-      
-        if not created and commentLikeDislike.interaction_type == 1 : #remove the like 1->0
-            commentLikeDislike.interaction_type = 0
-            commentLikeDislike.save(update_fields=['interaction_type'])
-            data = {'action' : 'like removed'}
-        
-        else : 
-            commentLikeDislike.interaction_type = 1
-            commentLikeDislike.save(update_fields=['interaction_type'])
-            data = {'action' : 'like added'}
-        
-        metadata = {
-            'likes_count' : comment.likes_count ,
-            'dislikes_count' :  comment.dislikes_count
-        }
+        like_dislike_service = LikeDislikeService(Comment, CommentLikeDislike)
+        dict_result = like_dislike_service.like(request, pk)
 
-        payload = successResponse(data,metadata)
-        return Response(payload, status.HTTP_200_OK)
+        payload = {"action" : dict_result['action']}
+        metadata = {"dislikes_count" : dict_result['dislikes_count'], "likes_count" : dict_result['likes_count']}
+
+        return Response(successResponse(payload,metadata), status.HTTP_200_OK)
 
 class CommentDislikeApiView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self,request, pk):
-        user = request.user
-        comment = get_object_or_404(Comment, pk , "Comment not found.")
-        commentLikeDislike, created = CommentLikeDislike.objects.get_or_create(user= user,comment= comment)
-      
-        if not created and commentLikeDislike.interaction_type == 2 : #remove the like 1->0
-            commentLikeDislike.interaction_type = 0
-            commentLikeDislike.save(update_fields=['interaction_type'])
-            data = {'action' : 'like removed'}
-        
-        else : 
-            commentLikeDislike.interaction_type = 2
-            commentLikeDislike.save(update_fields=['interaction_type'])
-            data = {'action' : 'like added'}
-        
-        metadata = {
-            'likes_count' : comment.likes_count ,
-            'dislikes_count' :  comment.dislikes_count
-        }
+        like_dislike_service = LikeDislikeService(Comment, CommentLikeDislike)
+        dict_result = like_dislike_service.dislike(request, pk)
 
-        payload = successResponse(data,metadata)
-        return Response(payload, status.HTTP_200_OK)
+        payload = {"action" : dict_result['action']}
+        metadata = {"dislikes_count" : dict_result['dislikes_count'], "likes_count" : dict_result['likes_count']}
+        
+        return Response(successResponse(payload,metadata), status.HTTP_200_OK)
+        
 
 
 class ReplyLikeApiView(APIView) :
     permission_classes = [IsAuthenticated]
 
     def post(self,request, pk):
-        user = request.user
-        reply = get_object_or_404(Reply, pk , "Reply not found.")
-        replyLikeDislike, created = ReplyLikeDislike.objects.get_or_create(user= user,reply= reply)
-      
-        if not created and replyLikeDislike.interaction_type == 1 : 
-            replyLikeDislike.interaction_type = 0
-            replyLikeDislike.save(update_fields=['interaction_type'])
-            data = {'action' : 'like removed'}
-        
-        else : 
-            replyLikeDislike.interaction_type = 1
-            replyLikeDislike.save(update_fields=['interaction_type'])
-            data = {'action' : 'like added'}
-        
-        metadata = {
-            'likes_count' : reply.likes_count ,
-            'dislikes_count' :  reply.dislikes_count
-        }
+        like_dislike_service = LikeDislikeService(Reply, ReplyLikeDislike)
+        dict_result = like_dislike_service.like(request, pk)
 
-        payload = successResponse(data,metadata)
-        return Response(payload, status.HTTP_200_OK)
+        payload = {"action" : dict_result['action']}
+        metadata = {"dislikes_count" : dict_result['dislikes_count'], "likes_count" : dict_result['likes_count']}
+        
+        return Response(successResponse(payload,metadata), status.HTTP_200_OK)
 
 class ReplyDislikeApiView(APIView) :
     permission_classes = [IsAuthenticated]
 
     def post(self,request, pk):
-        user = request.user
-        reply = get_object_or_404(Reply, pk , "Reply not found.")
-        replyLikeDislike, created = ReplyLikeDislike.objects.get_or_create(user= user,reply= reply)
-            
-        if not created and replyLikeDislike.interaction_type == 2 : #remove the like 1->0
-            replyLikeDislike.interaction_type = 0
-            replyLikeDislike.save(update_fields=['interaction_type'])
-            data = {'action' : 'like removed'}
-        
-        else : 
-            replyLikeDislike.interaction_type = 2
-            replyLikeDislike.save(update_fields=['interaction_type'])
-            data = {'action' : 'like added'}
-        
-        metadata = {
-            'likes_count' : reply.likes_count ,
-            'dislikes_count' :  reply.dislikes_count
-        }
+        like_dislike_service = LikeDislikeService(Reply, ReplyLikeDislike)
+        dict_result = like_dislike_service.dislike(request, pk)
 
-        payload = successResponse(data,metadata)
-        return Response(payload, status.HTTP_200_OK)
+        payload = {"action" : dict_result['action']}
+        metadata = {"dislikes_count" : dict_result['dislikes_count'], "likes_count" : dict_result['likes_count']}
+        
+        return Response(successResponse(payload,metadata), status.HTTP_200_OK)
     
 
 class GetLikesDislikesView(APIView):
