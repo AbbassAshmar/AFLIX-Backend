@@ -1,6 +1,5 @@
 from rest_framework.response import Response
 from rest_framework import viewsets,status
-from django.views.decorators.csrf import csrf_exempt
 from .models import *
 from .serializers import *
 from rest_framework.authtoken.models import Token
@@ -11,11 +10,12 @@ from django.core.exceptions import ObjectDoesNotExist
 from helpers.get_object_or_404 import get_object_or_404
 import random 
 import string
-import re
 import requests
 from helpers.response import successResponse, failedResponse
-from rest_framework.generics import CreateAPIView
-from rest_framework.exceptions import ValidationError
+from rest_framework.generics import CreateAPIView,UpdateAPIView
+from .services import UserService
+from django.http import Http404
+from rest_framework.exceptions import NotFound
 
 def remove_tuples_from_list(arr, *args):
     for key in args :
@@ -23,150 +23,44 @@ def remove_tuples_from_list(arr, *args):
             if item[0] == key:
                 arr.remove(item)
     return arr
-    
-def contains_letters_and_numbers(string):
-    return bool(re.search(r'^(?=.*[a-zA-Z])(?=.*[0-9])', string))
 
-def validate_password(password , confirm_password=None):
-    if len(password) < 8 :
-        metadata = {"error_fields" : ["password"]}
-        error = {
-            "code" : 400,
-            "message" : "Validation error.",
-            "details" : {
-                "password" : "Your password must be at least 8 characters !"
-            }
-        }
-        
-        return failedResponse(error, metadata)
-    
-    if not contains_letters_and_numbers(password):
-        metadata = {"error_fields" : ["password"]}
-        error = {
-            "code" : 400,
-            "message" : "Validation error.",
-            "details" : {
-                "password" : "Password must contain numbers and characters !"
-            }
-        }
-        
-        return failedResponse(error, metadata)
-    
-    if not password == confirm_password and confirm_password!=None:
-        metadata = {"error_fields" : ["password","confirm_password"]}
-        error = {
-            "code" : 400,
-            "message" : "Validation error.",
-            "details" : {
-                "confirm_password" : "Passwords do not match !"
-            }
-        }
-        
-        return failedResponse(error, metadata)
-    
-    return None
-
-class UserViewSet(viewsets.ViewSet):
+class UserViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     serializer_class = UserSerializer
-
-    # apply isAuthenticated permission for partial_update only
-    def get_permissions(self):
-        if self.request.method == "PATCH":
-            return [IsAuthenticated()]
-
-        return super().get_permissions()
+    queryset = User.objects.all()
     
-    def list(self, request):
-        queryset = User.objects.all()
-        serializer = self.serializer_class(queryset, many =True)
-        return Response(serializer.data)
+    def get_object(self):
+        try : 
+            return super().get_object()
+        except Http404 : 
+            raise NotFound("User not found.")
     
-    def retrieve(self, request, pk=None):
-        try :
-            user = User.objects.get(pk = pk)
-            serializer = self.serializer_class(user)
-
-            response = {
-                "metadata" : None,
-                "success" : True,
-                "error" : None,
-                "data" : {
-                    "user" : serializer.data
-                }
-            }
-            
-            return Response(response, status=status.HTTP_200_OK)
-        except :
-            response = {
-                "metadata" : None,
-                "success" : True,
-                "error" : {"message" : "User not Found", "code" : 404},
-                "data" :None,
-            }
-            return Response(response, status= status.HTTP_404_NOT_FOUND)
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        payload = successResponse({'users' : response.data}, None)
+        return Response(payload, status.HTTP_200_OK)
+    
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+        payload = successResponse({'user' : response.data}, None)
+        return Response(payload, status.HTTP_200_OK)
         
-    def partial_update(self, request , pk=None):
-        # get the user that sent the request
-        requester_user = Token.objects.get(key = request.headers["Authorization"].split(" ")[1]).user
-        # get the user who's information to be updated
-        user = get_object_or_404(User,pk,"user does not exist")
-        # check if both if the user who sent the request has the info to be updated
-        if not (requester_user == user):
-            return Response({"error": "not authorized"}, status=status.HTTP_403_FORBIDDEN)
-        # remove empty info from the request's body
-        user_info = {i:request.data[i] for i in request.data if not (len(request.data[i]) == 0)}
-
-        # if password is in requests body , update it alone
-        if "newPassword" in user_info and user_info["newPassword"] :
-            new_pass = user_info["newPassword"] 
-            confirm_pass = user_info["confirmPassword"]
-            # check if old password is correct
-            if not check_password(user_info['oldPassword'],user.password):
-                return Response({"error":"old password is not correct"},status=status.HTTP_400_BAD_REQUEST)
-            validatePass=validate_password(new_pass,confirm_pass) 
-            if validatePass is not None:
-                return Response(validatePass,status=status.HTTP_400_BAD_REQUEST)
-            # update the password of the user
-            user.set_password(new_pass)
-            # update the password of the instance in the database
-            user.save(update_fields=["password"])
-
-        # check if the new email is in the info to be updated
-        if "email" in user_info :
-            try:
-                #get the user of the email to be updated
-                user_by_email = User.objects.get(email = user_info["email"])
-                #if email is the same as the original , remove it from the info to be updated
-                if user == user_by_email :
-                    user_info.pop("email")
-                #if the client is updating his email to an email that belongs to another user, send an error response
-                else :
-                    return Response({"error":"email already used"}, status = status.HTTP_400_BAD_REQUEST)
-            # if the email is not used and different from the original , continue 
-            except ObjectDoesNotExist:
-                pass
+class UpdateUserApiView(UpdateAPIView) : 
+    lookup_field = 'pk'
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def partial_update(self, request):
+        user = request.user
+        new_data = request.data
+        updated_fields = [key for key in request.data.keys() if request.data[key]]
         
-        # create a new array of user's info without the passwords (already updated)
-        cleaned_array = remove_tuples_from_list(list(user_info.items()),"newPassword","oldPassword","confirmPassword","pfp") 
-        # the message to be sent in the response ,(contains updated info)
-        response_message = {}
-        # save the propfile picture if found using model.ImageField.save(name,image)   
-        if 'pfp' in user_info and user_info['pfp']:
-            user.pfp.save('pfp.jpg',user_info["pfp"])   
-            response_message["pfp"] = "http://127.0.0.1:8000"+user.pfp.url
-        # update the fields of the user model by the cleaned array (password already updated)
-        # equivalent to : user.email = email , user.username = username ...
-        for info, value in cleaned_array:
-            setattr(user, info, value)
-            response_message[info] = value
-        # update the row in the db (only update changed fields)
-        user.save(update_fields=[i[0] for i in cleaned_array])
-        return Response(response_message, status=status.HTTP_200_OK)  
-                                             
-    def delete(self,request, pk=None):
-        pass
+        user = UserService.update_user(user, new_data)
+        data = {"user" : UserSerializer(user,context={"fields":updated_fields}).data}
 
+        payload = successResponse(data,None)
+        return Response(payload, status=status.HTTP_200_OK)                             
 
 class googleLoginViewSet(viewsets.ViewSet):
     def create(self, request):
@@ -183,41 +77,9 @@ class RegisterApiView(CreateAPIView):
     serializer_class = UserSerializer
 
     def post(self , request):
-        new_user = request.data
-
-        # if User.objects.filter(email = new_user['email']).exists():
-        #     metadata = {"error_fields" : ["email"]}
-        #     error = {
-        #         "code" : 400,
-        #         "message" : "Validation error.",
-        #         "details" : {
-        #             "email" : "Email already used."
-        #         }
-        #     }
-
-        #     payload = failedResponse(error, metadata)
-        #     return Response(payload, status=status.HTTP_400_BAD_REQUEST)
-
-        password = new_user["password"]
-        confirm_password =new_user["confirm_password"]
-
-        # validatePass=validate_password(password,confirm_password) 
-        # if validatePass is not None:
-        #     return Response(validatePass,status=status.HTTP_400_BAD_REQUEST)
-
-        data = {
-            'username' : new_user['username'],
-            'password' : new_user["password"],
-            'email' : new_user['email'],
-            'pfp' : None
-        }
-
-        try :
-            user =User.objects.create_user(username = new_user["username"], email=new_user["email"], password = new_user["password"],pfp=None)
-            token = Token.objects.create(user = user)
-
-        except (ValidationError) : 
-            pass
+        data= request.data
+        user = UserService.create_user(data)
+        token = UserService.create_token(user)
 
         data = {
             "user" : self.get_serializer(user).data,
@@ -229,37 +91,13 @@ class RegisterApiView(CreateAPIView):
         
 class LoginApiView(CreateAPIView):
     def post(self , request):
-        email = request.data["email"]
-        password = request.data["password"]
+        email , password = request.data.get('email', None), request.data.get('password', None)
+        user = UserService.get_user_with_email_password(email , password)
+        token = UserService.create_token(user)
 
-        try :
-            user = User.objects.get(email = email)
-        except ObjectDoesNotExist:
-            metadata = {"error_fields" : ["email", "password"]}
-            error = {
-                "code": 400 , 
-                "message":"Validation Error.",
-                "details" : {"password" : "Account with this email does not exist!"}
-            }
-
-            payload = failedResponse(error, metadata)
-            return Response(payload, status= status.HTTP_400_BAD_REQUEST)
-        
-        if not check_password(password, user.password) :
-            metadata = {"error_fields" : ["email", "password"]}
-            error = {
-                "code": 400 , 
-                "message":"Validation Error.",
-                "details" : {"password" : "Wrong Email or Password"}
-            }
-
-            payload = failedResponse(error, metadata)
-            return Response(payload, status= status.HTTP_400_BAD_REQUEST)
-        
-        
         data= {
             "user" : UserSerializer(user).data,
-            'token' : Token.objects.get_or_create(user = user)[0].key
+            'token' : token.key
         }
         
         payload = successResponse(data, None)
