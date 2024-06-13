@@ -28,13 +28,13 @@ class Movie(models.Model) :
     released = models.DateField(max_length=256,null=True)
     genres = models.ManyToManyField(Genre)
     plot = models.TextField()
-    contentRating = models.ForeignKey(ContentRating,null=True, on_delete=models.SET_NULL,related_name='movies')
+    content_rating = models.ForeignKey(ContentRating,null=True, on_delete=models.SET_NULL,related_name='movies')
     director = models.ForeignKey(Directors, null=True,on_delete=models.SET_NULL,related_name='movies')
     duration = models.CharField(max_length=225)
     trailer = models.URLField(default=None, null=True)
-    poster = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg",null=True)
+    poster = models.URLField(default=None,null=True)
     image = models.URLField(default=None, null=True)
-    thumbnail = models.URLField(default="https://imdb-api.com/images/128x176/nopicture.jpg", null=True)
+    thumbnail = models.URLField(default=None, null=True)
     imdbId = models.CharField(max_length=300,null=True,blank=True,unique=True)
     
     @property

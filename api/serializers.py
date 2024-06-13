@@ -13,9 +13,15 @@ class GenresSerializer(serializers.ModelSerializer):
         model= Genre
         fields ="__all__"
 
+class ContentRatingSerializer(serializers.ModelSerializer) :
+    class Meta:
+        model= ContentRating
+        fields ="__all__"
+
 class MoviesSerializer(serializers.ModelSerializer):
     genres = GenresSerializer(many=True, read_only=True)
     director = DirectorsSerializer()
+    content_rating = ContentRatingSerializer()
     is_favorite = serializers.SerializerMethodField()
 
     class Meta:
@@ -42,12 +48,6 @@ class MoviesSerializer(serializers.ModelSerializer):
         poster_size = "w342" # w92,w154,w185,w342,w500,w780,original
         image_size= "w1280" # w780, w1280 , w300 , original
 
-        if not data['image']  :
-            data['image'] = "https://imdb-api.com/images/128x176/nopicture.jpg"
-        
-        if not data['poster'] :
-            data['poster'] = "https://imdb-api.com/images/128x176/nopicture.jpg"
-
         if data['image'] and data['image'].split("/")[-1] != "nopicture.jpg" : 
             data['image'] = base_url + image_size + "/" + data['image']
 
@@ -73,10 +73,7 @@ class MoviesSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
   
 
-class ContentRatingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model= ContentRating
-        fields ="__all__"
+
 
 
 
