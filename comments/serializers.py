@@ -26,10 +26,12 @@ class CommentSerializer(serializers.ModelSerializer):
             user = request.user
 
         if user and user.is_authenticated :
-            replyLikeDislike = ReplyLikeDislike.objects.first(user=user, reply=obj).interaction_type
-            if not replyLikeDislike :
+            commentLikeDislike = CommentLikeDislike.objects.filter(user=user, comment=obj).first()
+            if not commentLikeDislike :
                 return 0
-            return replyLikeDislike.interaction_type
+            return commentLikeDislike.interaction_type
+        
+        return 0
         
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -59,12 +61,12 @@ class ReplySerializer(serializers.ModelSerializer):
             user = request.user
 
         if user and user.is_authenticated :
-            replyLikeDislike = ReplyLikeDislike.objects.first(user=user, reply=obj).interaction_type
+            replyLikeDislike = ReplyLikeDislike.objects.filter(user=user, reply=obj).first()
             if not replyLikeDislike :
                 return 0
             return replyLikeDislike.interaction_type
         
-        return False
+        return 0
     
     def to_representation(self,instance):
         data = super().to_representation(instance)
@@ -112,12 +114,13 @@ class CommentReplySerializer(serializers.ModelSerializer) :
             user = request.user
 
         if user and user.is_authenticated :
-            replyLikeDislike = ReplyLikeDislike.objects.first(user=user, reply=obj).interaction_type
-            if not replyLikeDislike :
+            commentLikeDislike = CommentLikeDislike.objects.filter(user=user, comment=obj).first()
+            print(commentLikeDislike)
+            if not commentLikeDislike :
                 return 0
-            return replyLikeDislike.interaction_type
+            return commentLikeDislike.interaction_type
         
-        return False
+        return 0
 
     def get_likes(self, obj):
         return CommentLikeDislike.objects.filter(comment=obj, interaction_type=1).count()
