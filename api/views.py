@@ -150,7 +150,7 @@ class SimilarMoviesView(generics.ListAPIView):
 
     def list(self,request,id=None):
         movie = get_object_or_404(Movie, id, "Movie does not exist.")
-        similar_movies = MovieService.get_similar_movies(movie)
+        similar_movies = MovieService.get_similar_movies_to_movie(movie)
 
         paginator = self.pagination_class()
         paginated_movies = paginator.paginate_queryset_with_details(similar_movies, request)
@@ -162,7 +162,14 @@ class SimilarMoviesView(generics.ListAPIView):
         response = successResponse(data, metadata)
         return Response(response,status=status.HTTP_200_OK)
     
-    
+class RecommendationsApiView(generics.ListAPIView) : 
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request) : 
+        user = request.user
+        movies = MovieService.get_similar_movies_to_movies(user, 10) 
+        return Response({"movies" : movies})
+
 class FavoritesAPIView(generics.ListCreateAPIView):
     queryset=Favorite.objects.all()
     pagination_class = MoviePagination

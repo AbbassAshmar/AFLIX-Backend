@@ -1,8 +1,14 @@
-from .models import Movie,Genre, Directors
+from .models import Movie,Genre, Directors, ContentRating, Favorite
+from comments.models import Comment
 from django.db.models import Q 
 from datetime import date
 from abc import ABC, abstractmethod
 from django.core.exceptions import ObjectDoesNotExist
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
+from rest_framework import serializers
+from math import floor
 
 def get_todays_date_iso_format():
     return date.today().isoformat()
@@ -133,16 +139,75 @@ class MovieService :
         movies = Movie.objects.filter(released__lt=today).exclude(exclude)
         movies.order_by("-ratings__imdb")
         return movies
-    
+
     @staticmethod
-    def get_similar_movies(movie) : 
-        director = movie.director
-        genres = movie.genres.all()
-        today = get_todays_date_iso_format()
-        similar_movies = Movie.objects.filter(Q(Q(genres__in = genres) | Q(director = director))&Q(released__lt =today)).exclude(pk = movie.pk).distinct()
-        return similar_movies
-    
-    # def get_recommendations_movies() : 
+    def get_movies_recommendations_for_user(user, count) :
+        favorite_movies_movies_ids = Favorite.objects.filter(user = user).values_list('movie', flat=True)
+        favorite_movies = Movie.objects.filter(pk__in = favorite_movies_movies_ids)
+
+        commented_on_movies_ids = Comment.objects.filter(user=user).values_list('movie', flat=True)
+        commented_on_movies = Movie.objects.filter(pk__in = commented_on_movies_ids)
+
+        movies_list = favorite_movies.union(commented_on_movies)
+        recommendations_list = MovieService.get_similar_movies_to_movies(movies_list, count)
+
+        return recommendations_list
+
+    @staticmethod
+    def get_similar_movies_to_movies(input_movies, count=10) : 
+        if count <= 0 :
+            return Movie.objects.none()
+        
+        all_movies = Recommender.get_serialized_list_of_movies()
+
+        movies_dataframe = pd.DataFrame(all_movies)
+        movies_dataframe['criteria'] = movies_dataframe.apply(lambda row : f"{' '.join(row['genres'])} {row['director']} {row['title']} {row['plot']}",axis=1)
+
+        tfidf = TfidfVectorizer()
+        tfidf_matrix = tfidf.fit_transform(movies_dataframe['criteria'])
+
+        _cosine_similarity_matrix = cosine_similarity(tfidf_matrix)
+        _cosine_similarity_dataframe =pd.DataFrame(_cosine_similarity_matrix, index=movies_dataframe['id'], columns=movies_dataframe['id'])
+
+        input_movies_ids = [movie.pk for movie in input_movies]
+        movies_ids = []
+        
+        count_per_movie = floor(count / len(input_movies_ids)) 
+        extras = count_per_movie % len(input_movies_ids)
+        
+        for movie in input_movies_ids:
+            current_count = count_per_movie + (1 if extras > 0 else 0)
+            extras -= 1 if extras > 0 else 0
+            
+            all_similar_movies = _cosine_similarity_dataframe.loc[movie].sort_values(ascending=False).index.tolist()
+            for similar_movie_id in all_similar_movies:
+                if similar_movie_id not in input_movies_ids and similar_movie_id not in movies_ids:
+                    movies_ids.append(similar_movie_id)
+                    current_count -= 1
+                    if current_count == 0:
+                        break
+
+        return Movie.objects.filter(pk__in = movies_ids)
+
+    @staticmethod
+    def get_similar_movies_to_movie(movie : Movie, count=-1) :
+        movies = Recommender.get_serialized_list_of_movies()
+
+        movies_dataframe = pd.DataFrame(movies)
+        movies_dataframe['criteria'] = movies_dataframe.apply(lambda row : f"{' '.join(row['genres'])} {row['director']} {row['title']} {row['plot']}",axis=1)
+
+        tfidf = TfidfVectorizer()
+        tfidf_matrix = tfidf.fit_transform(movies_dataframe['criteria'])
+
+        _cosine_similarity_matrix = cosine_similarity(tfidf_matrix)
+        _cosine_similarity_dataframe =pd.DataFrame(_cosine_similarity_matrix, index=movies_dataframe['id'], columns=movies_dataframe['id'])
+        movie_row = _cosine_similarity_dataframe.loc[movie.pk].sort_values(ascending=False)[1:]
+
+        if count > 0 : 
+            movies_row = movie_row[0:count+1]
+
+        movies_ids = movies_row.index.to_list()
+        return Movie.objects.filter(pk__in = movies_ids)
 
     @staticmethod
     def filter_movies(queryset, filters : dict):
@@ -150,6 +215,21 @@ class MovieService :
         genre_filter = GenreFilter(filters.get("genre"),title_filter)
         release_year_filter = ReleaseYearFilter(filters.get("released"), genre_filter)
         content_rating_filter = ContentRatingFilter(filters.get("rated"), release_year_filter)
-
         return content_rating_filter.apply_filter(queryset).distinct()
     
+
+class Recommender :
+    class MovieSerializer(serializers.ModelSerializer):
+        genres = serializers.SlugRelatedField(many=True,read_only=True,slug_field='name')
+        director = serializers.CharField(source='director.name', read_only=True)
+        content_rating = serializers.CharField(source='content_rating.name', read_only=True)
+
+        class Meta:
+            model = Movie
+            fields = ('id','title', 'plot', 'director', 'content_rating', 'genres')
+
+    @staticmethod
+    def get_serialized_list_of_movies() : 
+        today = get_todays_date_iso_format()
+        movies= Movie.objects.filter(released__lt =today)
+        return Recommender.MovieSerializer(movies, many=True).data
