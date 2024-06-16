@@ -17,7 +17,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import NotFound
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
-from .services import MovieService
+from .services import MovieService,RecommenderService
 
 # event = threading.Event() # Create an Event to control the timimg of the thread
 # def setInterval(func,time,name):
@@ -150,7 +150,7 @@ class SimilarMoviesView(generics.ListAPIView):
 
     def list(self,request,id=None):
         movie = get_object_or_404(Movie, id, "Movie does not exist.")
-        similar_movies = MovieService.get_similar_movies_to_movie(movie)
+        similar_movies = RecommenderService.get_similar_movies_to_movie(movie)
 
         paginator = self.pagination_class()
         paginated_movies = paginator.paginate_queryset_with_details(similar_movies, request)
@@ -164,11 +164,17 @@ class SimilarMoviesView(generics.ListAPIView):
     
 class RecommendationsApiView(generics.ListAPIView) : 
     permission_classes = [IsAuthenticated]
+    serializer_class = MoviesSerializer
 
     def list(self, request) : 
         user = request.user
-        movies = MovieService.get_similar_movies_to_movies(user, 10) 
-        return Response({"movies" : movies})
+        movies = RecommenderService.get_movies_recommendations_for_user(user, 10) 
+
+        moviesSerializer = self.get_serializer(movies ,many=True, context={"request" : request})
+        data = {"movies":moviesSerializer.data}
+        
+        response = successResponse(data, None)
+        return Response(response,status=status.HTTP_200_OK)
 
 class FavoritesAPIView(generics.ListCreateAPIView):
     queryset=Favorite.objects.all()
@@ -186,7 +192,7 @@ class FavoritesAPIView(generics.ListCreateAPIView):
 
         paginator = self.pagination_class()
         paginated_movies = paginator.paginate_queryset_with_details(filtered_movies, request)
-        moviesSerializer = self.serializer_class(paginated_movies['result'],many=True)
+        moviesSerializer = self.get_serializer(paginated_movies['result'],many=True)
         
         data = {"movies":moviesSerializer.data}
         metadata = paginated_movies['details']
@@ -213,7 +219,6 @@ class MoviesCountApiView(APIView):
     def get(self, request):
         movies = Movie.objects.all()
         return Response(successResponse({'movies_count' : movies.count()}),status = status.HTTP_200_OK)
-
 
 class IgnoreInvalidToken(TokenAuthentication):
     def authenticate_credentials(self, key):

@@ -25,7 +25,7 @@ app.conf.beat_schedule = {
     },
     'MostPopularMovies task':{
         'task': 'api.tasks.MostPopularMovies',
-        'schedule':crontab(hour='6', minute='11',day_of_week='sun,thu,sun'),
+        'schedule':crontab(hour='9', minute='11',day_of_week='thu,sun'),
     },
     'ComingSoon task':{
         'task': 'api.tasks.ComingSoon',
@@ -34,5 +34,9 @@ app.conf.beat_schedule = {
     'TopImdb task':{
         'task': 'api.tasks.TopImdb',
         'schedule':crontab(hour='6', minute='22',day_of_week='wed,sun'),
+    },
+    'generate_and_store_cosine_similarity_dataframe_of_all_movies task':{
+        'task': 'api.tasks.generate_and_store_cosine_similarity_dataframe_of_all_movies',
+        'schedule':crontab(hour='10', minute='10',day_of_week='sun'),
     }
 }

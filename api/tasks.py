@@ -2,8 +2,9 @@ from backend.celeryFile import app
 import requests
 from dotenv import load_dotenv, find_dotenv
 import os
-from .models import Movie, Genre, Directors, PageInfo, ContentRating
+from models import Movie, Genre, Directors, PageInfo, ContentRating
 from django.core.exceptions import ObjectDoesNotExist
+from .services import MovieCosineSimilarityService
 
 load_dotenv(find_dotenv())
 
@@ -63,10 +64,10 @@ def extractDataFromOmdbMovieRequest(data,omdbMovie):
     data['director'] = None
     data['contentRating'] = None
     data['imdbId']= omdbMovie.get('imdbID', None)
-    data['duration'] = omdbMovie.get("Runtime", 'N/A')
+    data['duration'] = omdbMovie.get("Runtime",None)
     data['ratings'] = {
-        'metacritics': omdbMovie.get("Metascore", 'N/A'),
-        'imdb' : omdbMovie.get("imdbRating", 'N/A') 
+        'metacritics': omdbMovie.get("Metascore",None),
+        'imdb' : omdbMovie.get("imdbRating",None) 
     }
     
     if (omdbMovie.get("Rated","N/A") != "N/A") : 
@@ -154,3 +155,13 @@ def ComingSoon():
 def TopImdb():
     apiCall('top_rated')
     return True
+
+@app.task
+def generate_and_store_cosine_similarity_dataframe_of_all_movies() : 
+    return MovieCosineSimilarityService.generate_and_store_dataframe_of_all_movies()
+
+@app.task
+def generate_and_store_cosine_similarity_dataframe_row_of_movie(id) : 
+    return MovieCosineSimilarityService.generate_and_store_dataframe_row_of_movie(id)
+
+    

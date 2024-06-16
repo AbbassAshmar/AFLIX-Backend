@@ -1,3 +1,4 @@
+from typing import Iterable
 from django.db import models
 from authentication.models import User
 
@@ -27,14 +28,14 @@ class Movie(models.Model) :
     ratings = models.JSONField()
     released = models.DateField(max_length=256,null=True)
     genres = models.ManyToManyField(Genre)
-    plot = models.TextField()
+    plot = models.TextField(null=True, blank=True)
     content_rating = models.ForeignKey(ContentRating,null=True, on_delete=models.SET_NULL,related_name='movies')
     director = models.ForeignKey(Directors, null=True,on_delete=models.SET_NULL,related_name='movies')
-    duration = models.CharField(max_length=225)
-    trailer = models.URLField(default=None, null=True)
-    poster = models.URLField(default=None,null=True)
-    image = models.URLField(default=None, null=True)
-    thumbnail = models.URLField(default=None, null=True)
+    duration = models.CharField(max_length=225, null=True, blank=True)
+    trailer = models.URLField(default=None, null=True, blank=True)
+    poster = models.URLField(default=None,null=True, blank=True)
+    image = models.URLField(default=None, null=True, blank=True)
+    thumbnail = models.URLField(default=None, null=True, blank=True)
     imdbId = models.CharField(max_length=300,null=True,blank=True,unique=True)
     
     @property
@@ -46,6 +47,13 @@ class Movie(models.Model) :
     def __str__(self):
         return self.title 
     
+    def save(self, *args, **kwargs):
+        creating = self._state.adding  
+        super().save(*args, **kwargs) 
+        if creating:
+            import api.tasks
+            api.tasks.generate_and_store_cosine_similarity_dataframe_of_all_movies.delay(self.id)
+    
 
 class Favorite(models.Model):
     user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='favorites',default=1)
@@ -53,3 +61,7 @@ class Favorite(models.Model):
     def __str__(self):
         return self.user.username + " : " +self.movie.title 
     
+class MovieSimilarity(models.Model) : 
+    movie_1 = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='similarity_movie_1')
+    movie_2 = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='similarity_movie_2')
+    similarity = models.FloatField()
