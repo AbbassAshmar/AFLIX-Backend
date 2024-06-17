@@ -2,7 +2,7 @@ from backend.celeryFile import app
 import requests
 from dotenv import load_dotenv, find_dotenv
 import os
-from models import Movie, Genre, Directors, PageInfo, ContentRating
+from .models import Movie, Genre, Directors, PageInfo, ContentRating
 from django.core.exceptions import ObjectDoesNotExist
 from .services import MovieCosineSimilarityService
 
@@ -23,13 +23,15 @@ def getNextPage(type):
     if page_row is None: 
         page_row = PageInfo.objects.create(page=1, endpoint=type)
 
+    print(page_row.page)
     return page_row.page
 
 def incrementPage(type):
     page_row = PageInfo.objects.filter(endpoint=type).first()
-    page = page_row.page + 1
-    page_row.page = page
+    print(f"{page_row.page}--------------------------------------- page row increment")
+    page_row.page += 1
     page_row.save()
+
 
 def fetchMovieOmdbApi(OMDB_API_KEY, name) : 
     URL = f"http://www.omdbapi.com/?apikey={OMDB_API_KEY}&t={name.replace(' ', '+')}"
@@ -62,7 +64,7 @@ def extractDataFromOmdbMovieRequest(data,omdbMovie):
         return
     
     data['director'] = None
-    data['contentRating'] = None
+    data['content_rating'] = None
     data['imdbId']= omdbMovie.get('imdbID', None)
     data['duration'] = omdbMovie.get("Runtime",None)
     data['ratings'] = {
@@ -72,7 +74,7 @@ def extractDataFromOmdbMovieRequest(data,omdbMovie):
     
     if (omdbMovie.get("Rated","N/A") != "N/A") : 
         contentRating, created = ContentRating.objects.get_or_create(name = omdbMovie['Rated'])
-        data['contentRating'] = contentRating
+        data['content_rating'] = contentRating
 
     if (omdbMovie.get("Director", 'N/A')!= "N/A") : 
         director,created =  Directors.objects.get_or_create(name = omdbMovie['Director'])
@@ -102,15 +104,19 @@ def getGenres(TMDB_API_KEY):
 def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
     page = getNextPage(type)
     tmdb_movies_list = fetchMoviesListTmdbApi(type,page,TMDB_API_KEY)
-
+    print("------------here ----------------------")
+    print(tmdb_movies_list)
     if "success" in tmdb_movies_list and not tmdb_movies_list['success'] :
+        print("----------success----------")
         return False
 
     if not "results" in tmdb_movies_list : 
+        print("----------not results----------")
         return False
     
     for item in tmdb_movies_list['results']:
         if not item.get('title',True) or Movie.objects.filter(title=item['title']).exists() :
+            print("--------------not title------------")
             continue
 
         data={"thumbnail":None, 'trailer':getTrailer(TMDB_API_KEY, item['id']).get('key',None)}
@@ -120,9 +126,12 @@ def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
         extractDataFromOmdbMovieRequest(data, omdbResponse)
 
         try :
-            genres = data.pop('genre', None)
+            genres = data.pop('genres', None)
             movie = Movie.objects.create(**data)
-        except :
+            print(movie)
+            print('--------------------no except------------------------')
+        except Exception as e:
+            print(e)
             continue
 
         if genres:

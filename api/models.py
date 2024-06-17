@@ -45,14 +45,17 @@ class Movie(models.Model) :
         return comments_count + replies_count
     
     def __str__(self):
-        return self.title 
+        return f"{self.title} {self.pk}"
     
     def save(self, *args, **kwargs):
         creating = self._state.adding  
         super().save(*args, **kwargs) 
         if creating:
             import api.tasks
-            api.tasks.generate_and_store_cosine_similarity_dataframe_of_all_movies.delay(self.id)
+            try : 
+                api.tasks.generate_and_store_cosine_similarity_dataframe_row_of_movie.delay(self.id)
+            except Exception as e:
+                pass
     
 
 class Favorite(models.Model):
@@ -65,3 +68,10 @@ class MovieSimilarity(models.Model) :
     movie_1 = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='similarity_movie_1')
     movie_2 = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='similarity_movie_2')
     similarity = models.FloatField()
+
+    class Meta:
+        unique_together = ('movie_1', 'movie_2')
+
+    def __str__(self):
+        return f"{self.movie_1.pk}-{self.movie_2.pk}  {self.pk}"
+

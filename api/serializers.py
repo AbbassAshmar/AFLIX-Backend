@@ -48,19 +48,18 @@ class MoviesSerializer(serializers.ModelSerializer):
         poster_size = "w342" # w92,w154,w185,w342,w500,w780,original
         image_size= "w1280" # w780, w1280 , w300 , original
 
-        if data['image'] and data['image'].split("/")[-1] != "nopicture.jpg" : 
+        if data['image'] : 
             data['image'] = base_url + image_size + "/" + data['image']
 
-        if data['poster'].split("/")[-1] != "nopicture.jpg" : 
+        if data['poster']: 
             data['poster'] =  base_url + poster_size + "/" + data['poster']
 
-        if data['trailer'] :
+        if data['trailer']:
             data['trailer'] = f"https://www.youtube.com/embed/{data['trailer']}"
 
         return data
     
-    def to_internal_value(self, data): #executed during is_valid(), transforms any format (ex.json) to python respresentation (ex.dic).
-        # the representation is saved in the database after the serializer calls update or create methods and passing the trans data.
+    def to_internal_value(self, data):
         try: 
             try: 
                 releasedd= datetime.strptime(data["released"].replace(",",""),"%d %b %Y")

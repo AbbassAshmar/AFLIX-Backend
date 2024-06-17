@@ -187,13 +187,14 @@ class RecommenderService :
         _cosine_similarity_dataframe = MovieCosineSimilarityService.get_dataframe_of_all_movies()
         movie_row = _cosine_similarity_dataframe.get(movie.pk,[])
             
-        if len(movie_row) > 0: 
-            movie_row = movie_row.sort_values(ascending=False)[1:]
-
+        if len(movie_row) <= 0 : 
+            return Movie.objects.none()
+        
+        movie_row = movie_row.sort_values(ascending=False)[1:]
         if count > 0 : 
-            movies_row = movie_row[0:count+1]
+            movie_row = movie_row[0:count+1]
 
-        movies_ids = movies_row.index.to_list()
+        movies_ids = movie_row.index.tolist()
         return Movie.objects.filter(pk__in = movies_ids)
     
     @staticmethod
@@ -249,32 +250,32 @@ class MovieCosineSimilarityService :
 
     @staticmethod
     def get_serialized_list_of_movies() : 
-        today = get_todays_date_iso_format()
-        movies= Movie.objects.filter(released__lt =today)
+        movies= Movie.objects.all()
         return MovieCosineSimilarityService.MovieSerializer(movies, many=True).data
     
     @staticmethod 
     def get_dataframe_of_all_movies() : 
-        movies_similarities = MovieSimilarity.objects.all()
+        movies_exist = Movie.objects.exists()
 
-        movies_exist = Movie.objects.all().exists()
-        if movies_exist and not movies_similarities.exists(): 
-            MovieCosineSimilarityService.generate_and_store_dataframe_of_all_movies()
-        
-        movies_similarities_object = {}
-        for movie in movies_similarities : 
-            if movie.movie_1.pk in movies_similarities_object :
-                movies_similarities_object[movie.movie_1.pk][movie.movie_2.pk] = movie.similarity
-            else  :
-                movies_similarities_object[movie.movie_1.pk] = {movie.movie_2.pk : movie.similarity}
+        if movies_exist:
+            if not MovieSimilarity.objects.exists():
+                MovieCosineSimilarityService.generate_and_store_dataframe_of_all_movies()
 
-            if movie.movie_2.pk in movies_similarities_object :
-                movies_similarities_object[movie.movie_2.pk][movie.movie_1.pk] = movie.similarity
-            else  :
-                movies_similarities_object[movie.movie_2.pk] = {movie.movie_1.pk : movie.similarity}
-        
-        movies_dataframe = pd.DataFrame(movies_similarities_object,index=movies_similarities_object.keys(),columns=movies_similarities_object.keys())
-        return movies_dataframe
+        movies_similarities = MovieSimilarity.objects.values("movie_1", "movie_2", "similarity")
+        df = pd.DataFrame(list(movies_similarities))
+       
+        pivot_1 = df.pivot(index='movie_1', columns='movie_2', values='similarity')
+        pivot_2 = df.pivot(index='movie_2', columns='movie_1', values='similarity')
+
+        combined_index = pivot_1.index.union(pivot_2.index)
+        combined_columns = pivot_1.columns.union(pivot_2.columns)
+
+        pivot_1 = pivot_1.reindex(index=combined_index, columns=combined_columns)
+        pivot_2 = pivot_2.T.reindex(index=combined_columns, columns=combined_index).T
+
+        # Combine the DataFrames
+        combined = pivot_1.combine_first(pivot_2)
+        return combined
 
     @staticmethod
     def generate_and_store_dataframe_of_all_movies() :
@@ -310,7 +311,10 @@ class MovieCosineSimilarityService :
             return MovieCosineSimilarityService.generate_and_store_dataframe_of_all_movies()
     
         dataframe = MovieCosineSimilarityService.generate_dataframe_of_all_movies()
-        new_movie_row = dataframe.loc[id]
+        new_movie_row = dataframe.get(id,[])
+            
+        if len(new_movie_row) <= 0: 
+            return False
         
         movie_similarity_objects = []
         for movie, similarity in new_movie_row.items():

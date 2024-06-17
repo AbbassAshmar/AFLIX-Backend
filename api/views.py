@@ -38,6 +38,18 @@ class MoviePagination(PageNumberPagination):
     max_page_size = 200  # Maximum page size
 
     def paginate_queryset_with_details(self,filtered_movies, request):
+        if not filtered_movies : 
+           return {
+                "result" : [],
+                "details" : {
+                    'count':0,
+                    'total_count':0,
+                    'pages_count':0,
+                    'current_page': 0,
+                    'limit': 0,
+                }
+            } 
+      
         paginated_queryset = self.paginate_queryset(filtered_movies, request)
         return {
             "result" : paginated_queryset,
