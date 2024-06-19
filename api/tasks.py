@@ -11,7 +11,6 @@ load_dotenv(find_dotenv())
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 OMDB_API_KEY = os.getenv("OMDB_API_KEY")
 
-
 def getHeaders(apiKey):
     return {
         "accept": "application/json",
@@ -21,14 +20,12 @@ def getHeaders(apiKey):
 def getNextPage(type):
     page_row = PageInfo.objects.filter(endpoint=type).first()
     if page_row is None: 
-        page_row = PageInfo.objects.create(page=1, endpoint=type)
+        page_row = PageInfo.objects.create(page=0, endpoint=type)
 
-    print(page_row.page)
     return page_row.page
 
 def incrementPage(type):
     page_row = PageInfo.objects.filter(endpoint=type).first()
-    print(f"{page_row.page}--------------------------------------- page row increment")
     page_row.page += 1
     page_row.save()
 
@@ -102,21 +99,17 @@ def getGenres(TMDB_API_KEY):
     return True
 
 def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
-    page = getNextPage(type)
+    page = min(getNextPage(type),1)
     tmdb_movies_list = fetchMoviesListTmdbApi(type,page,TMDB_API_KEY)
-    print("------------here ----------------------")
-    print(tmdb_movies_list)
+
     if "success" in tmdb_movies_list and not tmdb_movies_list['success'] :
-        print("----------success----------")
         return False
 
     if not "results" in tmdb_movies_list : 
-        print("----------not results----------")
         return False
     
     for item in tmdb_movies_list['results']:
         if not item.get('title',True) or Movie.objects.filter(title=item['title']).exists() :
-            print("--------------not title------------")
             continue
 
         data={"thumbnail":None, 'trailer':getTrailer(TMDB_API_KEY, item['id']).get('key',None)}
@@ -128,10 +121,7 @@ def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
         try :
             genres = data.pop('genres', None)
             movie = Movie.objects.create(**data)
-            print(movie)
-            print('--------------------no except------------------------')
         except Exception as e:
-            print(e)
             continue
 
         if genres:

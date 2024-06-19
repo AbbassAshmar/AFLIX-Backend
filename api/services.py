@@ -12,6 +12,9 @@ from math import floor
 from django.db.models.functions import Cast
 from django.db.models import Case, When,FloatField, Value
 from django.db.models.fields.json import KeyTextTransform
+from django.core.cache import cache
+from io import StringIO
+from helpers.get_object_or_404 import get_object_or_404
 
 def get_todays_date_iso_format():
     return date.today().isoformat()
@@ -113,6 +116,20 @@ class ContentRatingFilter(Filter) :
 
 class MovieService : 
     @staticmethod
+    def get_by_id(id=None) :
+        name = f"{id}_movie"
+        cached = cache.get(name)
+
+        if cached : 
+            return cached
+        
+        movie = get_object_or_404(Movie,id,"Movie not found.")
+        if movie : 
+            cache.set(name, movie,60 * 30)
+
+        return movie
+    
+    @staticmethod
     def get_all_movies():
         return Movie.objects.all()
 
@@ -135,12 +152,25 @@ class MovieService :
         movies = Movie.objects.filter(released__lt=today).exclude(exclude)
         return movies 
     
+    @staticmethod
+    def only_movies_with_images(movies) : 
+        movies.exclude(Q(image = None))
+        return movies
+    
     @staticmethod 
     def get_top_imdb_movies() : 
         today =  get_todays_date_iso_format()
         exclude = Q(ratings__imdb = "N/A")
         movies = Movie.objects.filter(released__lt=today).exclude(exclude)
         movies.order_by("-ratings__imdb")
+        return movies
+    
+    @staticmethod
+    def get_favorites_movies(user) : 
+        if not user : 
+            return Movie.objects.none()
+        movies = Favorite.objects.filter(user=user.pk).values_list('movie', flat=True)
+        movies = Movie.objects.filter(id__in=movies)
         return movies
 
     @staticmethod
@@ -157,7 +187,7 @@ class RecommenderService :
         if count <= 0 or not input_movies:
             return Movie.objects.none()
     
-        _cosine_similarity_dataframe = MovieCosineSimilarityService.get_dataframe_of_all_movies()
+        _cosine_similarity_dataframe = MovieCosineSimilarityService.get_cosine_similarity_dataframe_of_all_movies()
         input_movies_ids = [movie.pk for movie in input_movies]
         movies_ids = []
         
@@ -180,13 +210,16 @@ class RecommenderService :
                     if current_count == 0:
                         break
 
-        return Movie.objects.filter(pk__in = movies_ids)
+        movies = Movie.objects.filter(pk__in = movies_ids)
+        movies = sorted(movies , key=lambda x: movies_ids.index(x.pk))
+                
+        return movies
 
     @staticmethod
     def get_similar_movies_to_movie(movie : Movie, count=-1) :
-        _cosine_similarity_dataframe = MovieCosineSimilarityService.get_dataframe_of_all_movies()
+        _cosine_similarity_dataframe = MovieCosineSimilarityService.get_cosine_similarity_dataframe_of_all_movies()
         movie_row = _cosine_similarity_dataframe.get(movie.pk,[])
-            
+       
         if len(movie_row) <= 0 : 
             return Movie.objects.none()
         
@@ -198,17 +231,20 @@ class RecommenderService :
         return Movie.objects.filter(pk__in = movies_ids)
     
     @staticmethod
-    def get_movies_recommendations_for_user(user, count) :
+    def get_movies_recommendations_for_user(user, count=-1) :
         favorite_movies_movies_ids = Favorite.objects.filter(user = user).values_list('movie', flat=True)
         favorite_movies = Movie.objects.filter(pk__in = favorite_movies_movies_ids)
 
         commented_on_movies_ids = Comment.objects.filter(user=user).values_list('movie', flat=True)
         commented_on_movies = Movie.objects.filter(pk__in = commented_on_movies_ids)
 
-        movies_list = favorite_movies.union(commented_on_movies)
-        movies_list_count = movies_list.count()
+        user_movies = favorite_movies.union(commented_on_movies)
+        user_movies_count = user_movies.count()
 
-        if movies_list_count < count : 
+        if count < 0:
+            count = Movie.objects.all().count()
+
+        if user_movies_count < 10 : 
             today =  get_todays_date_iso_format()
             movies = Movie.objects.alias(
                     imdb_rating_text=KeyTextTransform('imdb', 'ratings'),
@@ -232,9 +268,9 @@ class RecommenderService :
                         output_field=FloatField()
                     )      
             ).filter(released__lt=today).order_by("-combined_ratings")
-            movies_list = movies_list.union(movies[:count - movies_list_count]) 
+            user_movies = user_movies.union(movies[:10 - user_movies_count]) 
 
-        recommendations_list = RecommenderService.get_similar_movies_to_movies(movies_list, count)
+        recommendations_list = RecommenderService.get_similar_movies_to_movies(user_movies, count)
         return recommendations_list
 
     
@@ -254,9 +290,12 @@ class MovieCosineSimilarityService :
         return MovieCosineSimilarityService.MovieSerializer(movies, many=True).data
     
     @staticmethod 
-    def get_dataframe_of_all_movies() : 
+    def get_cosine_similarity_dataframe_of_all_movies() : 
+        cached_dataframe = cache.get('cosine_similarity_dataframe')
+        if cached_dataframe: 
+            return  pd.read_json(StringIO(cached_dataframe))
+        
         movies_exist = Movie.objects.exists()
-
         if movies_exist:
             if not MovieSimilarity.objects.exists():
                 MovieCosineSimilarityService.generate_and_store_dataframe_of_all_movies()
@@ -275,6 +314,8 @@ class MovieCosineSimilarityService :
 
         # Combine the DataFrames
         combined = pivot_1.combine_first(pivot_2)
+        cache.set('cosine_similarity_dataframe',combined.to_json(),timeout=None)
+       
         return combined
 
     @staticmethod
@@ -312,7 +353,7 @@ class MovieCosineSimilarityService :
     
         dataframe = MovieCosineSimilarityService.generate_dataframe_of_all_movies()
         new_movie_row = dataframe.get(id,[])
-            
+       
         if len(new_movie_row) <= 0: 
             return False
         
@@ -346,4 +387,5 @@ class MovieCosineSimilarityService :
         _cosine_similarity_matrix = cosine_similarity(tfidf_matrix)
         _cosine_similarity_dataframe =pd.DataFrame(_cosine_similarity_matrix, index=movies_dataframe['id'], columns=movies_dataframe['id'])
 
+        cache.delete("cosine_similarity_dataframe")
         return _cosine_similarity_dataframe

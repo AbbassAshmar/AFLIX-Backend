@@ -15,6 +15,39 @@ from rest_framework import viewsets,status
 from django.utils import timezone
 from helpers.response import successResponse, failedResponse
 from .services import LikeDislikeService
+from rest_framework.pagination import PageNumberPagination
+
+
+class CommentReplyPagination(PageNumberPagination):
+    page_size = 30  # Default page size
+    page_size_query_param = 'limit'
+    max_page_size = 200  # Maximum page size
+
+    def paginate_queryset_with_details(self,commentsReplies, request):
+        if not commentsReplies : 
+           return {
+                "result" : [],
+                "details" : {
+                    'count':0,
+                    'total_count':0,
+                    'pages_count':0,
+                    'current_page': 0,
+                    'limit': 0,
+                }
+            } 
+      
+        paginated_queryset = self.paginate_queryset(commentsReplies, request)
+        return {
+            "result" : paginated_queryset,
+            "details" : {
+                'count': len(paginated_queryset),
+                'total_count':self.page.paginator.count,
+                'pages_count':self.page.paginator.num_pages,
+                'current_page': self.page.number,
+                'limit': self.get_page_size(request),
+            }
+        }
+
 
 
 class CommentApiView(APIView):
@@ -174,13 +207,18 @@ class ReplyApiView(APIView):
 
 
 class CommentReplyApiView(APIView):
+    pagination_class = CommentReplyPagination
+
     def get(self,request, movie_id=None):
-        movie = get_object_or_404(Movie, movie_id,"movie doesn't exist.")
+        movie = get_object_or_404(Movie, movie_id,"Movie doesn't exist.")
         comments = movie.comments.order_by("-created_at")
 
-        comments_serializer = CommentReplySerializer(comments, many=True, context={"request" : request})
+        paginator = self.pagination_class()
+        paginated_queryset = paginator.paginate_queryset_with_details(comments, request)
+
+        comments_serializer = CommentReplySerializer(paginated_queryset['result'], many=True, context={"request" : request})
         data = {"comments_replies":comments_serializer.data}
-        metadata = {"comments_replies_count":movie.comments_replies_count}
+        metadata = paginated_queryset['details']
         
         payload = successResponse(data,metadata)
         return Response(payload,status=status.HTTP_200_OK)
@@ -210,8 +248,6 @@ class CommentDislikeApiView(APIView):
         
         return Response(successResponse(payload,metadata), status.HTTP_200_OK)
         
-
-
 class ReplyLikeApiView(APIView) :
     permission_classes = [IsAuthenticated]
 

@@ -3,6 +3,7 @@ from rest_framework.routers import SimpleRouter, DynamicRoute, Route
 from .views import *
 
 urlpatterns =[
+    path("movies/slider/", SliderMoviesApiView.as_view(), name="slider-movies"),
     path('movies/recommendations/', RecommendationsApiView.as_view(), name="recommendations"),
     path("users/user/favorites/", FavoritesAPIView.as_view(), name="favorites"),
     path("movies/trending/", TrendingMoviesView.as_view(), name="movie-trending"),

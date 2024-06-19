@@ -7,19 +7,19 @@ broker_connection_retry_on_startup = True
 beat_schedule = {
     'InTheaters task': {
         'task': 'api.tasks.InTheaters',
-        'schedule':crontab(hour='10', minute='35',day_of_week='mon,sat'),
+        'schedule':crontab(hour='5', minute='35',day_of_week='wed,sat'),
     },
     'MostPopularMovies task':{
         'task': 'api.tasks.MostPopularMovies',
-        'schedule':crontab(hour='9', minute='56',day_of_week='mon,thu,sun'),
+        'schedule':crontab(hour='5', minute='28',day_of_week='wed,thu,sun'),
     },
     'ComingSoon task':{
         'task': 'api.tasks.ComingSoon',
-        'schedule':crontab(hour='10', minute='25',day_of_week='mon,fri,tue,sat'),
+        'schedule':crontab(hour='5', minute='30',day_of_week='wed,fri,tue,sat'),
     },
     'TopImdb task':{
         'task': 'api.tasks.TopImdb',
-        'schedule':crontab(hour='6', minute='22',day_of_week='wed,sun'),
+        'schedule':crontab(hour='5', minute='32',day_of_week='wed,sun'),
     },
     'generate_and_store_cosine_similarity_dataframe_of_all_movies task':{
         'task': 'api.tasks.generate_and_store_cosine_similarity_dataframe_of_all_movies',

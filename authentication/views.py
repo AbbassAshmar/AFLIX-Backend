@@ -17,13 +17,6 @@ from .services import UserService
 from django.http import Http404
 from rest_framework.exceptions import NotFound
 
-def remove_tuples_from_list(arr, *args):
-    for key in args :
-        for item in arr :
-            if item[0] == key:
-                arr.remove(item)
-    return arr
-
 class UserViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     serializer_class = UserSerializer

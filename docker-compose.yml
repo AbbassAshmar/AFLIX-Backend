@@ -43,6 +43,7 @@ services :  # specify the different docker images to compose
 
   redis :
     image: redis:7.0.9-alpine
+    command: redis-server --maxmemory-policy allkeys-lfu
     ports: 
       - '6379:6379'
 
