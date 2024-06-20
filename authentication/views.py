@@ -8,14 +8,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.core.exceptions import ObjectDoesNotExist
 from helpers.get_object_or_404 import get_object_or_404
-import random 
-import string
-import requests
 from helpers.response import successResponse, failedResponse
 from rest_framework.generics import CreateAPIView,UpdateAPIView
-from .services import UserService
+from .services import UserService,GoogleAuthService
 from django.http import Http404
 from rest_framework.exceptions import NotFound
+from dotenv import load_dotenv, find_dotenv
+import os
+
+load_dotenv(find_dotenv())
 
 class UserViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
@@ -55,15 +56,6 @@ class UpdateUserApiView(UpdateAPIView) :
         payload = successResponse(data,None)
         return Response(payload, status=status.HTTP_200_OK)                             
 
-class googleLoginViewSet(viewsets.ViewSet):
-    def create(self, request):
-        email= request.data["email"]
-        try :
-            user = User.objects.get(email = email)
-        except ObjectDoesNotExist:
-            return Response({"error": "Wrong email or password 1 !"}, status= status.HTTP_404_NOT_FOUND)
-        token = Token.objects.get_or_create(user=user)[0]
-        return Response({"user" :UserSerializer(user).data, "token" : token.key},status=status.HTTP_302_FOUND)
 
 class RegisterApiView(CreateAPIView):
     permission_classes= []
@@ -71,7 +63,7 @@ class RegisterApiView(CreateAPIView):
 
     def post(self , request):
         data= request.data
-        user = UserService.create_user(data)
+        user = UserService.register_user(data)
         token = UserService.create_token(user)
 
         data = {
@@ -104,40 +96,20 @@ class LogoutApiView(CreateAPIView):
         data= {"action" : "logged out"}
         return Response(successResponse(data,None), status.HTTP_200_OK)
 
-class TokenValidate(APIView):
-    def get(self, request, *args, **kwargs):
-        client_id = "798671795051-c95amd54jght2rvvkbnqog71ilut2kch.apps.googleusercontent.com"
-        access_token = request.headers.get("Authorization",None)
+class GoogleRegisterApiView(CreateAPIView):
+    serializer_class = UserSerializer
 
-        if access_token is None :
-            return Response({"error" :"Access token missing"}, status=status.HTTP_403_FORBIDDEN)
-        
-        access_token = access_token.split(" ")[1]
-        token_info = requests.get(f"https://www.googleapis.com/oauth2/v3/tokeninfo?access_token={access_token}").json()
+    def post(self, request, *args, **kwargs):
+        access_token = request.data.get("access_token",None)
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        google_auth = GoogleAuthService(access_token, client_id)
 
-        if int(token_info["expires_in"]) <= 0 :
-            return Response({"error":"access token expired"}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        if token_info["aud"] != client_id :
-            return Response({"error":"wrong access token"}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        user_info = requests.get(f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={access_token}").json()
-        if token_info["sub"] != user_info["sub"]: # to ensure that the user info return belong to the user's token 
-            return Response({"error":"wrong user"}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        user_data = {"email":user_info["email"], "username":user_info["name"],"password":passwordGenerate()}
-        try :
-            User.objects.get(email = user_data["email"]) 
-            response = requests.post("http://127.0.0.1:8000/glogin/", json=user_data).json()
-            return Response(response,status=status.HTTP_200_OK)
-        
-        except ObjectDoesNotExist :
-            response = requests.post("http://127.0.0.1:8000/users/", json=user_data).json()
-            return Response(response,status=status.HTTP_201_CREATED)
-           
-def passwordGenerate():
-    password=""
-    while len(password) < 20:
-        password += random.choice(string.printable)
-    return password
+        user = google_auth.authenticate_user()
+        token = UserService.create_token(user)
+
+        data = {"user" : self.get_serializer(user).data, "token" : token.key}
+        payload = successResponse(data, None)
+
+        return Response(payload,status=status.HTTP_200_OK)
+
 

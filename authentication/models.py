@@ -12,7 +12,7 @@ class User(AbstractUser):
     pfp = models.ImageField(upload_to="authentication/imgs/pfps", blank=True,null=True)
 
     def __str__(self):
-        return self.username
+        return self.username 
     
     def set_password(self, raw_password,password_field="password"):
         self.validate_password(raw_password ,password_field)

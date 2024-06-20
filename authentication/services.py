@@ -2,10 +2,14 @@ from .models import User
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils.crypto import get_random_string
+from custom_exceptions.custom_exceptions import NetworkError
+import requests
+
 
 class UserService :
     @staticmethod
-    def create_user(data) :
+    def register_user(data) :
         User.validate_register_required_fields(data)
 
         password = data["password"]
@@ -66,6 +70,75 @@ class UserService :
 
         user.save(update_fields=[field for field in updated_fields])
         return user
+    
+class GoogleAuthService :
+    token_info_url = "https://www.googleapis.com/oauth2/v3/tokeninfo"
+    owner_info_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+    def __init__(self, access_token, client_id) : 
+        self.access_token = access_token
+        self.client_id = client_id
+        self.token_details = {}
+        self.owner_details = {}
+
+    def fetch_access_token_details(self) : 
+        url = f"{GoogleAuthService.token_info_url}?access_token={self.access_token}"
+        try:
+            response = requests.get(url, timeout=5) 
+            response.raise_for_status() #if status code is an error raise exception
+            self.token_details = response.json()
+        except requests.exceptions.RequestException as e:
+            raise NetworkError("Error fetching token details") 
+
+    def fetch_access_token_owner_details(self) : 
+        url = f"{GoogleAuthService.owner_info_url}?access_token={self.access_token}"
+        try:
+            response = requests.get(url, timeout=5) 
+            response.raise_for_status()  
+            self.owner_details = response.json()
+        except requests.exceptions.RequestException as e:
+            raise NetworkError("Error fetching user details") 
+        
+    def validate_google_access_token(self,token_details, owner_details) :
+        if int(token_details["expires_in"]) <= 0 :
+            raise ValidationError({"message" : "Access token expired."})
+        
+        #the token should be for this server, aud is the server unique id.
+        if token_details["aud"] != self.client_id :
+            raise ValidationError({"message" : "Access token is not valid."})
+        
+        #creator of the token is the same as
+        if token_details["sub"] != owner_details["sub"]: 
+            raise ValidationError({"message" : "Access token does not belong to this user."})
+
+        return True
+    
+    def authenticate_user(self) :
+        self.fetch_access_token_details()
+        self.fetch_access_token_owner_details()
+
+        is_valid = self.validate_google_access_token(self.token_details, self.owner_details)
+
+        if is_valid : 
+            data = {
+                "email":self.owner_details["email"], 
+                "username":self.owner_details["name"], 
+                "password" : GoogleAuthService.get_random_password(),
+                "pfp" : self.owner_details['picture']
+            }
+            
+            user = User.objects.filter(email = data['email']).first()
+            if not user: 
+                user =  User.objects.create(**data)
+            
+            return user
+        
+        return User.objects.none()
+    
+    @staticmethod
+    def get_random_password():
+        return get_random_string(20)
+    
 
 
 

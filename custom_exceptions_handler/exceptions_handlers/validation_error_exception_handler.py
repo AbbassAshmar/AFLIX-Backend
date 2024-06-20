@@ -1,7 +1,6 @@
 from rest_framework.views import exception_handler
 from helpers.response import failedResponse
 from rest_framework.response import Response
-# from django.core.exceptions import ValidationError
 from rest_framework.exceptions import ValidationError
 
 
@@ -13,15 +12,18 @@ def validation_error_exception_handler(exc, context):
         error = {
             'code' : 400,
             'message' : "Validation error.",
-            "details" : {
-
-            }
+            "details" : {}
         }
 
         if exc.detail : 
             for key in exc.detail : 
+                if key == "message" : 
+                    error["message"] =  exc.detail[key]
+                    continue
+
                 if exc.detail[key] :
                     error['details'][key] = exc.detail[key]
+                    
                 metadata['error_fields'].append(key)
 
         payload = failedResponse(error, metadata)
