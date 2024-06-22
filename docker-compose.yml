@@ -17,10 +17,6 @@ services :  # specify the different docker images to compose
     build : . #current directory
     depends_on:
       - db
-    volumes :
-    #bind - mount : synchronize  host : container 
-    # the host file system (file in the pc) is now plugged to the virtual container file system so data can be saved in it
-      - .:/usr/src/app/backend # . : host directory relative to this file , /usr/src/app : container directory
     ports : #Activates the container to listen for specified port(s) from the world outside of the docker
           #(can be same host machine or a different machine) AND also accessible world inside docker.
       - 8000:8000 #port 8000 on container (externally) currosponds to 8000 on pc,  (eternally)
@@ -30,12 +26,8 @@ services :  # specify the different docker images to compose
     depends_on:
       - django
     build : 
-      # context : ../AFLIX-Frontend
       context : ../frontend
       target : development # use development step of the dockerfile
-    volumes :
-      # - ../AFLIX-Frontend:/usr/src/app/frontend
-       - ../frontend:/usr/src/app/frontend
     ports:
       - 3000:3000
 
