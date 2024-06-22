@@ -33,11 +33,9 @@ services :  # specify the different docker images to compose
       # context : ../AFLIX-Frontend
       context : ../frontend
       target : development # use development step of the dockerfile
-    
     volumes :
       # - ../AFLIX-Frontend:/usr/src/app/frontend
        - ../frontend:/usr/src/app/frontend
-
     ports:
       - 3000:3000
 
@@ -50,16 +48,12 @@ services :  # specify the different docker images to compose
   celery :
     build : . #same build as django 
     command : celery -A backend worker --loglevel=DEBUG
-    volumes : 
-      - .:/usr/src/app/backend
     depends_on:
       - django
       
   celery_beat : 
     build : .
     command : celery -A backend beat -s ./celery_beat
-    volumes : 
-      - .:/usr/src/app/backend
     depends_on:
       - celery
 
