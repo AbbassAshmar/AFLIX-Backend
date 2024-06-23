@@ -1,9 +1,11 @@
 version : '3.9'
 
-services :  # specify the different docker images to compose
-  db : #name 
-    image : postgres:15.2-alpine
+services :
+  db :  
     restart : always
+    build:
+      context: .
+      dockerfile: Dockerfile.postgresql
     ports :
       - 5432:5432
     environment :
@@ -14,12 +16,13 @@ services :  # specify the different docker images to compose
  
   django :
     restart : always
-    build : . #current directory
+    build : 
+      context : .
+      dockerfile: Dockerfile.django
     depends_on:
       - db
-    ports : #Activates the container to listen for specified port(s) from the world outside of the docker
-          #(can be same host machine or a different machine) AND also accessible world inside docker.
-      - 8000:8000 #port 8000 on container (externally) currosponds to 8000 on pc,  (eternally)
+    ports : 
+      - 8000:8000 
 
   react :
     restart: always
@@ -27,31 +30,36 @@ services :  # specify the different docker images to compose
       - django
     build : 
       context : ../frontend
-      target : development # use development step of the dockerfile
+      target : development
     ports:
       - 3000:3000
 
+  react_production:
+    depends_on:
+      - django
+    build:
+      context: ../frontend
+      target: production
+    ports:
+      - 80:80
+
   redis :
-    image: redis:7.0.9-alpine
-    command: redis-server --maxmemory-policy allkeys-lfu
+    build : 
+      context : .
+      dockerfile: Dockerfile.redis
     ports: 
-      - '6379:6379'
+      - 6379:6379
 
   celery :
-    build : . #same build as django 
-    command : celery -A backend worker --loglevel=DEBUG
+    build : 
+      context : .
+      dockerfile: Dockerfile.celery
     depends_on:
       - django
       
   celery_beat : 
-    build : .
-    command : celery -A backend beat -s ./celery_beat
+    build : 
+      context : .
+      dockerfile: Dockerfile.celery_beat
     depends_on:
       - celery
-
-# to run docker compose , docker-compose up
-
-# note : exposing a port means it is available to other containers only, to be accessed by outer machines(externally)
-# this port has to be bound to a port in the host machine 
-# docker compose automatically creates a bridge newtwork between containers to communicate, the alternative would be 
-# to create a bridge network manually , and then connect the desired containers to communicate to this network using commands 
