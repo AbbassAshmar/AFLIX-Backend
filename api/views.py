@@ -5,10 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import *
 from .models import *
-from rest_framework.authtoken.models import Token
 from django.core.exceptions import ObjectDoesNotExist
-from datetime import date
-import threading
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q 
 from helpers.response import successResponse, failedResponse
@@ -16,7 +13,6 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from .services import MovieService,RecommenderService
-
 
 
 class IgnoreInvalidToken(TokenAuthentication):

@@ -2,22 +2,27 @@ from rest_framework.response import Response
 from rest_framework import viewsets,status
 from .models import *
 from .serializers import *
-from rest_framework.authtoken.models import Token
-from django.contrib.auth.hashers import check_password
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from django.core.exceptions import ObjectDoesNotExist
-from helpers.get_object_or_404 import get_object_or_404
 from helpers.response import successResponse, failedResponse
 from rest_framework.generics import CreateAPIView,UpdateAPIView
 from .services import UserService,GoogleAuthService
 from django.http import Http404
 from rest_framework.exceptions import NotFound
 from dotenv import load_dotenv, find_dotenv
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 import os
 
 load_dotenv(find_dotenv())
 
+
+class IgnoreInvalidToken(TokenAuthentication):
+    def authenticate_credentials(self, key):
+        try:
+            return super().authenticate_credentials(key)
+        except AuthenticationFailed:
+            return None  
+        
 class UserViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     serializer_class = UserSerializer
@@ -75,6 +80,8 @@ class RegisterApiView(CreateAPIView):
         return Response(payload, status=status.HTTP_201_CREATED)
         
 class LoginApiView(CreateAPIView):
+    permission_classes = [IgnoreInvalidToken]
+
     def post(self , request):
         email , password = request.data.get('email', None), request.data.get('password', None)
         user = UserService.get_user_with_email_password(email , password)

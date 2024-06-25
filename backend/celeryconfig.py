@@ -1,28 +1,34 @@
 from celery.schedules import crontab
+from dotenv import load_dotenv, find_dotenv
+import os
 
-broker_url = "redis://redis:6379/2"
+load_dotenv(find_dotenv())
+
+broker_url =  os.getenv("QUEUE_REDIS_URL")
 broker_connection_retry_on_startup = True
+worker_concurrency = 1
+worker_prefetch_multiplier = 1
 
 #time utc
 beat_schedule = {
     'InTheaters task': {
         'task': 'api.tasks.InTheaters',
-        'schedule':crontab(hour='5', minute='35',day_of_week='wed,sat'),
+        'schedule':crontab(hour='5', minute='45',day_of_week='wed,sat'),
     },
     'MostPopularMovies task':{
         'task': 'api.tasks.MostPopularMovies',
-        'schedule':crontab(hour='5', minute='28',day_of_week='wed,thu,sun'),
+        'schedule':crontab(hour='5', minute='55',day_of_week='mon'),
     },
     'ComingSoon task':{
         'task': 'api.tasks.ComingSoon',
-        'schedule':crontab(hour='5', minute='30',day_of_week='wed,fri,tue,sat'),
+        'schedule':crontab(hour='8', minute='21',day_of_week='thu,sun'),
     },
     'TopImdb task':{
         'task': 'api.tasks.TopImdb',
-        'schedule':crontab(hour='5', minute='32',day_of_week='wed,sun'),
+        'schedule':crontab(hour='7', minute='15',day_of_week='tue'),
     },
     'generate_and_store_cosine_similarity_dataframe_of_all_movies task':{
         'task': 'api.tasks.generate_and_store_cosine_similarity_dataframe_of_all_movies',
-        'schedule':crontab(hour='10', minute='10',day_of_week='sun'),
+        'schedule':crontab(hour='10', minute='10',day_of_week='fri'),
     }
 }

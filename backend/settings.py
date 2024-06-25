@@ -1,16 +1,20 @@
 from pathlib import Path
 import os
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DOMAIN = 'http://localhost:8000'
+DOMAIN = os.getenv("DOMAIN")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-=2ij7^_@kx#hmwd52s(j=aj7_54_6$@mae*-azg60x9vn-+w=1'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -35,6 +39,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'oauth2_provider',
     'django_celery_beat',
+    'storages'
 ]
 
 MIDDLEWARE = [
@@ -52,12 +57,13 @@ MIDDLEWARE = [
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8000",
-    "http://localhost:3000",
+    os.getenv('FRONTEND_ORIGIN'),
 ]
+
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    os.getenv('FRONTEND_ORIGIN'),
 ]
+
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
@@ -109,11 +115,11 @@ REST_FRAMEWORK = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'user',
-        'USER':'user',
-        'PASSWORD':'pass',
-        'HOST': 'db',
-        'PORT': 5432
+        'NAME': os.getenv("DATABASE_NAME"),
+        'USER': os.getenv("DATABASE_USER"),
+        'PASSWORD': os.getenv("DATABASE_PASSWORD"),
+        'HOST': os.getenv("DATABASE_HOST"),
+        'PORT': os.getenv("DATABASE_PORT"),
     }
 }
 
@@ -122,7 +128,7 @@ DATABASES = {
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': "redis://redis:6379/0",
+        'LOCATION': os.getenv("CACHE_REDIS_URL"),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
@@ -166,10 +172,32 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # root to store uploaded media like images on local device
-MEDIA_ROOT=''
+MEDIA_ROOT= "media/"
+
 
 # url for to serve media ,ex. "/img/img_name.jpg"
-MEDIA_URL=''
+MEDIA_URL=f"{DOMAIN}/media/"
+
+
+# Supabase configuration
+USE_S3 = bool(os.environ.get("USE_S3", "False"))
+
+if USE_S3 : 
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {},
+        },
+    }
+
+    AWS_STORAGE_BUCKET_NAME =  os.environ.get("AWS_STORAGE_BUCKET_NAME")
+    AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL") # Supabase endpoint
+    AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION_NAME")
+
+    MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/media/"
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
@@ -181,4 +209,6 @@ ALLOWED_HOSTS = ['*']
 
 # Oauth2
 LOGIN_URL='/admin/login/'
+
+
 

@@ -99,7 +99,7 @@ def getGenres(TMDB_API_KEY):
     return True
 
 def getMovies(type, TMDB_API_KEY, OMDB_API_KEY):
-    page = min(getNextPage(type),1)
+    page = max(getNextPage(type),1)
     tmdb_movies_list = fetchMoviesListTmdbApi(type,page,TMDB_API_KEY)
 
     if "success" in tmdb_movies_list and not tmdb_movies_list['success'] :

@@ -1,6 +1,6 @@
 from .models import User
 from rest_framework import serializers
-from backend.settings import DOMAIN
+from backend.settings import MEDIA_URL
 from urllib.parse import unquote
 
 class UserSerializer(serializers.ModelSerializer):
@@ -11,15 +11,10 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ("id", "email", "username", "password","pfp")
 
     def get_pfp(self, obj):
-        if obj.pfp is not None :
-            try :
-                url = unquote(obj.pfp.url)
-                if url and url.startswith("/http") :
-                    return url[1:]
-                return DOMAIN + obj.pfp.url
-            except :
-                return None
-        return None
+        try : 
+            return unquote(obj.pfp.url)
+        except : 
+            return None
     
     def to_representation(self, instance):
         data = super().to_representation(instance)

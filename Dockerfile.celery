@@ -8,4 +8,10 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-CMD celery -A backend worker --loglevel=DEBUG
+# Expose the desired port (e.g., 8000)
+EXPOSE 8001
+
+# Command to run the start script
+CMD ./start-celery-container.sh
+
+# CMD celery -A backend worker --loglevel=DEBUG

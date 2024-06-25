@@ -1,22 +1,16 @@
-from django.shortcuts import render
 from api.models import Movie
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from authentication.views import get_object_or_404
-from django.db.models import F
 from rest_framework.authtoken.models import Token
 from .serializers import CommentSerializer,ReplySerializer, CommentReplySerializer
 from rest_framework.response import Response
-from rest_framework import serializers
-from authentication.models import User
 from .models import Comment, Reply, CommentLikeDislike, ReplyLikeDislike
-from django.core.exceptions import ObjectDoesNotExist
-from rest_framework import viewsets,status
+from rest_framework import status
 from django.utils import timezone
 from helpers.response import successResponse, failedResponse
 from .services import LikeDislikeService
 from rest_framework.pagination import PageNumberPagination
-
+from helpers.get_object_or_404 import get_object_or_404
 
 class CommentReplyPagination(PageNumberPagination):
     page_size = 30  # Default page size
@@ -56,7 +50,7 @@ class CommentApiView(APIView):
     def post(self, request):
         user = request.user
         movie = get_object_or_404(Movie,request.data['movie'],"movie doesn't exist")
-
+        
         data = {
             'text':request.data['text'],
             'movie':movie.pk,

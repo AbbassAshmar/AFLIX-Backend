@@ -1,2 +1,3 @@
 FROM  redis:7.0.9-alpine
-CMD redis-server --maxmemory-policy allkeys-lfu
+EXPOSE 6379
+CMD redis-server --user Gollumia on --protected-mode no --port 6379 --bind 0.0.0.0 --requirepass Gollumiaredis --maxmemory 500000000 --maxmemory-policy allkeys-lfu

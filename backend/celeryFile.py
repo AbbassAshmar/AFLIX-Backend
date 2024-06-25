@@ -1,6 +1,5 @@
 import os 
 from celery import Celery
-from celery.schedules import crontab
 
 
 # set env var DJANGO_SETTINGS_MODULE=backend.settings for django to find settings
