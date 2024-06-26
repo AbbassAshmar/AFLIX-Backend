@@ -13,7 +13,7 @@ worker_prefetch_multiplier = 1
 beat_schedule = {
     'InTheaters task': {
         'task': 'api.tasks.InTheaters',
-        'schedule':crontab(hour='5', minute='45',day_of_week='wed,sat'),
+        'schedule':crontab(hour='5', minute='13',day_of_week='wed,sat'),
     },
     'MostPopularMovies task':{
         'task': 'api.tasks.MostPopularMovies',
@@ -25,7 +25,7 @@ beat_schedule = {
     },
     'TopImdb task':{
         'task': 'api.tasks.TopImdb',
-        'schedule':crontab(hour='7', minute='15',day_of_week='tue'),
+        'schedule':crontab(hour='4', minute='5',day_of_week='tue'),
     },
     'generate_and_store_cosine_similarity_dataframe_of_all_movies task':{
         'task': 'api.tasks.generate_and_store_cosine_similarity_dataframe_of_all_movies',
