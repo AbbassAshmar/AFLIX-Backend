@@ -35,6 +35,8 @@ services :
       target : development
     ports:
       - 3000:3000
+    volumes : 
+      - ../frontend:/usr/src/app/frontend 
 
   react_production:
     depends_on:

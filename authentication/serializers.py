@@ -12,7 +12,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_pfp(self, obj):
         try : 
-            return unquote(obj.pfp.url)
+            pfp = obj.pfp
+            if pfp.name.startswith("http") : 
+                return pfp.name
+            
+            return obj.pfp.url
         except : 
             return None
     

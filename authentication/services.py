@@ -41,7 +41,7 @@ class UserService :
 
     @staticmethod
     def update_user(user : User, new_data : object) : 
-        updated_fields = {}
+        updated_fields = []
 
         if new_data.get("new_password", None) : 
             required_fields = ['old_password', 'confirm_password'] 
@@ -54,21 +54,21 @@ class UserService :
             User.validate_passwords_match(new_data['new_password'], new_data['confirm_password'], 'new_password')
 
             user.set_password(new_data['new_password'], "new_password")
-            updated_fields["password"] = user.password
+            updated_fields.append('password')
 
         if new_data.get('email', None) :
             user.email = new_data['email']
-            updated_fields["email"] = user.email
+            updated_fields.append('email')
 
         if new_data.get('pfp' , None) :
-            user.pfp.save('pfp.jpg',new_data["pfp"])   
-            updated_fields["pfp"] = user.pfp.url
+            user.pfp.save(f"pfp_{user.pk}",new_data["pfp"]) 
+            updated_fields.append('pfp')
 
         if new_data.get('username', None) : 
             user.username = new_data['username']
-            updated_fields["username"] = user.username 
+            updated_fields.append('username')
 
-        user.save(update_fields=[field for field in updated_fields])
+        user.save(update_fields=updated_fields)
         return user
     
 class GoogleAuthService :
