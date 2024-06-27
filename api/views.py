@@ -93,6 +93,7 @@ class MoviesRetrieveApiView(generics.RetrieveAPIView):
 class TopImdbMoviesView(generics.ListAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
+    authentication_classes = [IgnoreInvalidToken]
 
     def list(self, request):
         movies = MovieService.get_top_imdb_movies()
@@ -111,6 +112,7 @@ class TopImdbMoviesView(generics.ListAPIView):
 class TrendingMoviesView(generics.ListAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
+    authentication_classes = [IgnoreInvalidToken]
 
     def list(self, request):
             movies = MovieService.get_trending_movies()
@@ -128,7 +130,8 @@ class TrendingMoviesView(generics.ListAPIView):
 class LatestMoviesView(generics.ListAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
-   
+    authentication_classes = [IgnoreInvalidToken]
+
     def list(self,request):
         movies = MovieService.get_latest_movies()
 
@@ -145,6 +148,7 @@ class LatestMoviesView(generics.ListAPIView):
 class SliderMoviesApiView(generics.ListAPIView) : 
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
+    authentication_classes = [IgnoreInvalidToken]
 
     def list(self, request):
         movies = MovieService.get_trending_movies()
@@ -163,6 +167,7 @@ class SliderMoviesApiView(generics.ListAPIView) :
 class UpcomingMoviesView(generics.RetrieveAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
+    authentication_classes = [IgnoreInvalidToken]
 
     def retrieve(self,request):
         movies = MovieService.get_upcoming_movies()
@@ -180,6 +185,7 @@ class UpcomingMoviesView(generics.RetrieveAPIView):
 class SimilarMoviesView(generics.ListAPIView):
     pagination_class = MoviePagination
     serializer_class = MoviesSerializer
+    authentication_classes = [IgnoreInvalidToken]
 
     def list(self,request,id=None):
         movie = MovieService.get_by_id(id)
@@ -217,7 +223,7 @@ class RecommendationsApiView(generics.ListAPIView) :
 class FavoritesAPIView(generics.ListCreateAPIView):
     queryset=Favorite.objects.all()
     pagination_class = MoviePagination
-    permission_classes=[IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     serializer_class = MoviesSerializer
         
     def list(self,request):
