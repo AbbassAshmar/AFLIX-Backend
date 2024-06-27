@@ -11,5 +11,6 @@ urlpatterns =[
     path("register", RegisterApiView.as_view(), name="register"),
     path("logout", LogoutApiView.as_view(), name="logout"),
     path("users", UpdateUserApiView.as_view(), name="partial-update-user"),
+    path("check" ,isUserAuthenticated.as_view(), name="is-user-authenticated" ),
     path('', include(router.urls)),
 ]

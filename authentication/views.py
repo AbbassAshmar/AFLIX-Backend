@@ -4,7 +4,7 @@ from .models import *
 from .serializers import *
 from rest_framework.permissions import IsAuthenticated
 from helpers.response import successResponse, failedResponse
-from rest_framework.generics import CreateAPIView,UpdateAPIView
+from rest_framework.generics import CreateAPIView,UpdateAPIView, ListAPIView
 from .services import UserService,GoogleAuthService
 from django.http import Http404
 from rest_framework.exceptions import NotFound
@@ -22,7 +22,13 @@ class IgnoreInvalidToken(TokenAuthentication):
             return super().authenticate_credentials(key)
         except AuthenticationFailed:
             return None  
-        
+
+class isUserAuthenticated(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    def list(self, request) :
+        payload = successResponse({"is_authenticated": True},None)
+        return Response(payload, 200)
+
 class UserViewSet(viewsets.ModelViewSet):
     lookup_field = 'pk'
     serializer_class = UserSerializer
@@ -80,7 +86,7 @@ class RegisterApiView(CreateAPIView):
         return Response(payload, status=status.HTTP_201_CREATED)
         
 class LoginApiView(CreateAPIView):
-    permission_classes = [IgnoreInvalidToken]
+    authentication_classes = [IgnoreInvalidToken]
 
     def post(self , request):
         email , password = request.data.get('email', None), request.data.get('password', None)
